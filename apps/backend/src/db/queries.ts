@@ -165,13 +165,12 @@ export async function buildRoomState(roomId: string): Promise<RoomState | null> 
 
 function computeResults(votes: VoteEntry[]): VoteResults {
   const numericVotes = votes.filter(v => isNumericCard(v.card)).map(v => v.card as number)
-  const allNumeric = numericVotes.length === votes.length
 
-  const average = allNumeric && votes.length > 0
+  const average = numericVotes.length > 0
     ? Math.round((numericVotes.reduce((a, b) => a + b, 0) / numericVotes.length) * 10) / 10
     : null
 
-  const dispersion = allNumeric && numericVotes.length > 1
+  const dispersion = numericVotes.length > 1
     ? (() => {
         const mean = numericVotes.reduce((a, b) => a + b, 0) / numericVotes.length
         const variance = numericVotes.reduce((a, b) => a + (b - mean) ** 2, 0) / numericVotes.length
