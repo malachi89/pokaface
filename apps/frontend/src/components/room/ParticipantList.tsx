@@ -29,7 +29,7 @@ export function ParticipantList({ participants, onKick, isModerator = false }: P
                   {participant.hasVoted && (
                     <Badge variant="success">✓ Voted</Badge>
                   )}
-                  {!participant.hasVoted && (
+                  {!participant.hasVoted && !participant.isModerator && (
                     <Badge variant="warning">Waiting</Badge>
                   )}
                   {participant.isConnected ? (
