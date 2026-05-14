@@ -14,11 +14,12 @@ import { ConnectionBadge } from '@/components/room/ConnectionBadge'
 import { CopyLinkButton } from '@/components/room/CopyLinkButton'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { VoterProgress } from '@/components/room/VoterProgress'
+import { NameForm } from '@/components/home/NameForm'
 import type { CardValue } from '@pokaface/shared'
 
 export default function RoomPage({ params }: { params: { roomId: string } }) {
   const router = useRouter()
-  const { identity, synced } = useIdentity()
+  const { identity, setName, synced } = useIdentity()
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'
   const { socket, connected, reconnecting } = useSocket(backendUrl)
   const isCreating = params.roomId === 'new'
@@ -42,12 +43,6 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
   }, [socket, connected, isCreating, identity, router])
 
   useEffect(() => {
-    if (synced && !identity.name) {
-      router.replace('/')
-    }
-  }, [synced, identity.name, router])
-
-  useEffect(() => {
     if (state.error && state.error.includes('removed')) {
       setTimeout(() => router.push('/'), 2000)
     }
@@ -64,6 +59,19 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
       }
     }
   }, [state.room, identity.participantToken, selectedCard])
+
+  if (synced && !identity.name) {
+    return (
+      <div className="min-h-screen bg-surface flex flex-col items-center justify-center p-4">
+        <div className="absolute top-4 right-4"><ThemeToggle /></div>
+        <div className="text-center mb-10">
+          <h1 className="text-3xl font-bold text-white mb-1">Pokaface</h1>
+          <p className="text-muted">Enter your name to join the room</p>
+        </div>
+        <NameForm defaultName="" onContinue={setName} />
+      </div>
+    )
+  }
 
   if (!connected && !state.room) {
     return (
