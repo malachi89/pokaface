@@ -1,6 +1,10 @@
 import type { Socket, Server } from 'socket.io'
-import { nanoid } from 'nanoid'
+import { uniqueNamesGenerator, adjectives, animals } from 'unique-names-generator'
 import { v4 as uuid } from 'uuid'
+
+function generateRoomId(): string {
+  return uniqueNamesGenerator({ dictionaries: [adjectives, animals], separator: '-', length: 2 })
+}
 import bcrypt from 'bcryptjs'
 import { EVENTS } from '@pokaface/shared'
 import type { CreateRoomPayload, JoinRoomPayload } from '@pokaface/shared'
@@ -25,7 +29,7 @@ export function registerRoomHandlers(io: Server, socket: Socket) {
         return
       }
 
-      const roomId = nanoid(10)
+      const roomId = generateRoomId()
       const roundId = uuid()
       const moderatorToken = await bcrypt.hash(participantToken, config.bcryptRounds)
 

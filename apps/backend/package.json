@@ -9,12 +9,13 @@
   },
   "dependencies": {
     "@pokaface/shared": "*",
-    "sqlite3": "^5.1.7",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "express": "^4.18.2",
     "nanoid": "^3.3.7",
     "socket.io": "^4.6.2",
+    "sqlite3": "^5.1.7",
+    "unique-names-generator": "^4.7.1",
     "uuid": "^9.0.1"
   },
   "devDependencies": {

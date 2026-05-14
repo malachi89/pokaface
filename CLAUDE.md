@@ -58,6 +58,15 @@ Frontend build arg: `NEXT_PUBLIC_BACKEND_URL` (defaults to `http://localhost:300
 - Room cleanup: rooms inactive > `ROOM_TTL_DAYS` deleted at startup and every 24 h
 - Card values are `0, 1, 2, 3, 5, 8, ?, ☕`, defined as a union type in `packages/shared/src/cards.ts`
 
+## Deploy (Oracle Cloud)
+- Server: `ubuntu@158.101.1.222`, key at `~/Downloads/ssh-key-2026-05-14.key`
+- **Deploy command** (run on server after `git pull`):
+  ```bash
+  cd ~/pokaface && git pull && docker-compose up -d --build
+  ```
+- Check logs: `docker-compose logs -f`
+- Full deploy guide: `deploy.md` (not committed — lives only locally)
+
 ## v1 scope
 - Included extras: copy link, auto-reconnect, auto-consensus detection
 - Out of scope for v1: voting timer, reveal sound (add later without debt)
