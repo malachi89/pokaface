@@ -24,7 +24,7 @@ export function ModeratorPanel({
     <div className="p-6 bg-surface-2 rounded-lg border border-surface-3 space-y-4">
       <h3 className="font-semibold text-white text-lg">Moderator Controls</h3>
 
-      <div className="text-sm text-surface mb-4">
+      <div className="text-sm text-muted mb-4">
         {votedCount} of {totalParticipants} voted
         {phase === 'voting' && ` (${totalParticipants - votedCount} waiting)`}
       </div>

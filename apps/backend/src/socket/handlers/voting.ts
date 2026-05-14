@@ -55,6 +55,11 @@ export function registerVotingHandlers(io: Server, socket: Socket) {
         return
       }
 
+      if (row.is_moderator === 1) {
+        socket.emit(EVENTS.ROOM_ERROR, { code: 'FORBIDDEN', message: 'Moderators cannot vote' })
+        return
+      }
+
       if (!(FIBONACCI_CARDS as CardValue[]).includes(card)) {
         socket.emit(EVENTS.ROOM_ERROR, { code: 'INVALID_CARD', message: 'Invalid card value' })
         return

@@ -23,9 +23,9 @@ export function Button({
     'font-medium rounded transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand'
 
   const variantClasses = {
-    primary: 'bg-brand hover:bg-brand-hover text-white disabled:bg-surface-3 disabled:text-surface',
-    secondary: 'bg-surface-2 hover:bg-surface-3 text-white disabled:bg-surface-1 disabled:text-surface',
-    danger: 'bg-red-600 hover:bg-red-700 text-white disabled:bg-surface-3 disabled:text-surface',
+    primary: 'bg-brand hover:bg-brand-hover text-white disabled:bg-surface-3 disabled:text-muted',
+    secondary: 'bg-surface-2 hover:bg-surface-3 text-white disabled:bg-surface-1 disabled:text-muted',
+    danger: 'bg-red-600 hover:bg-red-700 text-white disabled:bg-surface-3 disabled:text-muted',
   }
 
   const sizeClasses = {

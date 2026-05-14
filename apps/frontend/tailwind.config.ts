@@ -1,15 +1,18 @@
 import type { Config } from 'tailwindcss'
 
 const config: Config = {
+  darkMode: 'class',
   content: ['./src/**/*.{js,ts,jsx,tsx,mdx}'],
   theme: {
     extend: {
       colors: {
+        white: 'var(--color-text-primary)',
+        muted: 'var(--color-muted)',
         surface: {
-          DEFAULT: '#0f0f11',
-          1: '#18181b',
-          2: '#27272a',
-          3: '#3f3f46',
+          DEFAULT: 'var(--color-surface)',
+          1: 'var(--color-surface-1)',
+          2: 'var(--color-surface-2)',
+          3: 'var(--color-surface-3)',
         },
         brand: {
           DEFAULT: '#6366f1',

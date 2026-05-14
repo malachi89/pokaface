@@ -16,7 +16,7 @@ export function Input({
   className = '',
 }: InputProps) {
   const baseClass =
-    'w-full px-4 py-2 bg-surface-2 border border-surface-3 rounded text-white placeholder-surface focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition-colors'
+    'w-full px-4 py-2 bg-surface-2 border border-surface-3 rounded text-white placeholder-muted focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition-colors'
 
   return (
     <input

@@ -23,11 +23,11 @@ export function RoomHeader({
       <div className="flex items-start justify-between mb-4">
         <div>
           <h1 className="text-3xl font-bold text-white mb-1">Pokaface</h1>
-          <code className="text-surface text-sm">{roomId}</code>
+          <code className="text-muted text-sm">{roomId}</code>
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-sm text-surface">Participants:</span>
+          <span className="text-sm text-muted">Participants:</span>
           <Badge variant="success">{participantCount}</Badge>
         </div>
       </div>
@@ -41,7 +41,7 @@ export function RoomHeader({
             maxLength={100}
           />
         ) : (
-          <p className="text-lg text-white">{storyTitle || <span className="text-surface">No story title</span>}</p>
+          <p className="text-lg text-white">{storyTitle || <span className="text-muted">No story title</span>}</p>
         )}
       </div>
     </div>

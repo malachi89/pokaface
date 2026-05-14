@@ -1,8 +1,8 @@
 services:
   backend:
     build:
-      context: ./apps/backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/backend/Dockerfile
     environment:
       - PORT=3001
       - DB_PATH=/app/data/pokaface.db
@@ -10,25 +10,27 @@ services:
       - BCRYPT_ROUNDS=10
       - ROOM_TTL_DAYS=7
       - NODE_ENV=production
+    ports:
+      - "3001:3001"
     volumes:
       - ./data:/app/data
     networks:
       - internal
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3001/health"]
+      test: ["CMD", "sh", "-c", "nc -z localhost 3001 || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
 
   frontend:
     build:
-      context: ./apps/frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/frontend/Dockerfile
       args:
         - NEXT_PUBLIC_BACKEND_URL=${BACKEND_URL:-http://localhost:3001}
     environment:
-      - NODE_ENV=production
+      - NODE_ENV=development
     ports:
       - "3000:3000"
     depends_on:

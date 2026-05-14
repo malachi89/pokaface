@@ -62,7 +62,7 @@ export function JoinForm({ onJoin, onCreate }: JoinFormProps) {
           <div className="w-full border-t border-surface-3" />
         </div>
         <div className="relative flex justify-center text-sm">
-          <span className="px-2 bg-surface text-surface">or</span>
+          <span className="px-2 bg-surface text-muted">or</span>
         </div>
       </div>
 

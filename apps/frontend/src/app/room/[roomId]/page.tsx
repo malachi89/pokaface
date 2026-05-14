@@ -12,21 +12,40 @@ import { VoteResults } from '@/components/room/VoteResults'
 import { ModeratorPanel } from '@/components/room/ModeratorPanel'
 import { ConnectionBadge } from '@/components/room/ConnectionBadge'
 import { CopyLinkButton } from '@/components/room/CopyLinkButton'
+import { ThemeToggle } from '@/components/ThemeToggle'
+import { VoterProgress } from '@/components/room/VoterProgress'
 import type { CardValue } from '@pokaface/shared'
 
 export default function RoomPage({ params }: { params: { roomId: string } }) {
   const router = useRouter()
-  const { identity } = useIdentity()
+  const { identity, synced } = useIdentity()
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'
   const { socket, connected, reconnecting } = useSocket(backendUrl)
+  const isCreating = params.roomId === 'new'
   const { state, submitVote, startVote, revealVotes, resetVotes, changeStory, kickParticipant } = useRoom(
-    params.roomId,
+    isCreating ? null : params.roomId,
     identity,
     socket,
     connected,
   )
 
   const [selectedCard, setSelectedCard] = useState<CardValue | null>(null)
+
+  useEffect(() => {
+    if (!socket || !isCreating || !connected || !identity.participantToken || !identity.name) return
+    socket.emit('room:create', { name: identity.name, participantToken: identity.participantToken })
+    const handleCreated = ({ room }: { room: { roomId: string } }) => {
+      router.replace(`/room/${room.roomId}`)
+    }
+    socket.on('room:created', handleCreated)
+    return () => { socket.off('room:created', handleCreated) }
+  }, [socket, connected, isCreating, identity, router])
+
+  useEffect(() => {
+    if (synced && !identity.name) {
+      router.replace('/')
+    }
+  }, [synced, identity.name, router])
 
   useEffect(() => {
     if (state.error && state.error.includes('removed')) {
@@ -64,7 +83,20 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
       <div className="min-h-screen bg-surface flex items-center justify-center p-4">
         <div className="text-center space-y-4">
           <p className="text-red-400 text-lg">{state.error}</p>
-          <p className="text-surface">Redirecting...</p>
+          <p className="text-muted">Redirecting...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (isCreating || state.connecting) {
+    return (
+      <div className="min-h-screen bg-surface flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="animate-pulse mb-4">
+            <div className="w-16 h-16 bg-surface-2 rounded-lg mx-auto"></div>
+          </div>
+          <p className="text-white">{isCreating ? 'Creating room…' : 'Joining room…'}</p>
         </div>
       </div>
     )
@@ -86,7 +118,8 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
     )
   }
 
-  const votedCount = state.room.participants.filter(p => p.hasVoted).length
+  const voters = state.room.participants.filter(p => !p.isModerator)
+  const votedCount = voters.filter(p => p.hasVoted).length
 
   return (
     <div className="min-h-screen bg-surface p-4 md:p-8">
@@ -94,6 +127,7 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
         <div className="flex items-center justify-between mb-8">
           <div />
           <div className="flex items-center gap-4">
+            <ThemeToggle />
             <ConnectionBadge connected={connected} reconnecting={reconnecting} />
             <CopyLinkButton roomId={params.roomId} />
           </div>
@@ -115,15 +149,20 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-8">
-            <CardDeck
-              selectedCard={selectedCard}
-              onSelect={card => {
-                setSelectedCard(card)
-                submitVote(card)
-              }}
-              disabled={state.room.phase !== 'voting'}
-              revealed={state.room.phase === 'revealed'}
-            />
+            {state.isModerator
+              ? <VoterProgress participants={state.room.participants} />
+              : (
+                <CardDeck
+                  selectedCard={selectedCard}
+                  onSelect={card => {
+                    setSelectedCard(card)
+                    submitVote(card)
+                  }}
+                  disabled={state.room.phase !== 'voting'}
+                  revealed={state.room.phase === 'revealed'}
+                />
+              )
+            }
 
             {state.room.results && state.room.phase === 'revealed' && <VoteResults results={state.room.results} />}
           </div>
@@ -139,7 +178,7 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
                   setSelectedCard(null)
                 }}
                 votedCount={votedCount}
-                totalParticipants={state.room.participants.length}
+                totalParticipants={voters.length}
               />
             )}
 

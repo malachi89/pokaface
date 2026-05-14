@@ -13,7 +13,7 @@ interface ParticipantListProps {
 export function ParticipantList({ participants, onKick, isModerator = false }: ParticipantListProps) {
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-semibold text-surface uppercase tracking-wide">Participants ({participants.length})</h3>
+      <h3 className="text-sm font-semibold text-muted uppercase tracking-wide">Participants ({participants.length})</h3>
 
       <div className="space-y-2">
         {participants.map(participant => (

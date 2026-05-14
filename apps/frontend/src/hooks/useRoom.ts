@@ -37,10 +37,10 @@ export function useRoom(roomId: string | null, identity: UserIdentity, socket: S
   }, [socket, roomId, identity])
 
   const submitVote = useCallback(
-    (card: string) => {
+    (card: any) => {
       if (!socket || !roomId) return
       socket.emit(EVENTS.VOTE_SUBMIT, { roomId, card })
-      setState(prev => ({ ...prev, myVote: card }))
+      setState(prev => ({ ...prev, myVote: String(card) }))
     },
     [socket, roomId],
   )
@@ -84,33 +84,25 @@ export function useRoom(roomId: string | null, identity: UserIdentity, socket: S
     if (!socket) return
 
     const handleRoomState = (payload: { room: RoomState }) => {
+      const myParticipant = payload.room.participants.find(p => p.participantId === identity.participantToken)
       setState(prev => ({
         ...prev,
         room: payload.room,
-        isModerator: payload.room.participants.some(
-          p => p.isModerator && p.participantId === identity.participantToken,
-        ),
-        hasVoted: payload.room.participants.some(
-          p => p.participantId === identity.participantToken && p.hasVoted,
-        ),
-        myVote: payload.room.participants.find(p => p.participantId === identity.participantToken)?.hasVoted
-          ? payload.room.participants.find(p => p.participantId === identity.participantToken)?.name
-          : null,
+        isModerator: myParticipant?.isModerator ?? false,
+        hasVoted: myParticipant?.hasVoted ?? false,
+        myVote: myParticipant?.hasVoted ? myParticipant.name : null,
         connecting: false,
         error: null,
       }))
     }
 
     const handleRoomUpdated = (payload: { room: RoomState }) => {
+      const myParticipant = payload.room.participants.find(p => p.participantId === identity.participantToken)
       setState(prev => ({
         ...prev,
         room: payload.room,
-        isModerator: payload.room.participants.some(
-          p => p.isModerator && p.participantId === identity.participantToken,
-        ),
-        hasVoted: payload.room.participants.some(
-          p => p.participantId === identity.participantToken && p.hasVoted,
-        ),
+        isModerator: myParticipant?.isModerator ?? false,
+        hasVoted: myParticipant?.hasVoted ?? false,
       }))
     }
 

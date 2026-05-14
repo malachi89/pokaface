@@ -79,10 +79,7 @@ export function registerRoomHandlers(io: Server, socket: Socket) {
       const room = await buildRoomState(roomId)
       if (room) {
         socket.emit(EVENTS.ROOM_STATE, { room })
-
-        socket.to(roomId).emit(EVENTS.PARTICIPANT_JOINED, {
-          participant: room.participants.find(p => p.participantId === participantToken),
-        })
+        socket.to(roomId).emit(EVENTS.ROOM_UPDATED, { room })
       }
     } catch (err) {
       socket.emit(EVENTS.ROOM_ERROR, { code: 'ERROR', message: 'Failed to join room' })
