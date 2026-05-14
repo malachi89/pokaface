@@ -1,0 +1,78 @@
+import type { Socket, Server } from 'socket.io'
+import { nanoid } from 'nanoid'
+import { v4 as uuid } from 'uuid'
+import bcrypt from 'bcryptjs'
+import { EVENTS } from '@pokaface/shared'
+import type { CreateRoomPayload, JoinRoomPayload } from '@pokaface/shared'
+import {
+  createRoom,
+  getRoom,
+  upsertParticipant,
+  disconnectParticipant,
+  getParticipantBySocket,
+  buildRoomState,
+  getRoomParticipants,
+} from '../../db/queries'
+import { addSocketToRoom, removeSocketFromRoom } from '../rooms'
+import { config } from '../../config'
+
+export function registerRoomHandlers(io: Server, socket: Socket) {
+  socket.on(EVENTS.ROOM_CREATE, async (payload: CreateRoomPayload) => {
+    const { name, participantToken, storyTitle = '' } = payload
+
+    if (!name?.trim() || !participantToken) {
+      socket.emit(EVENTS.ROOM_ERROR, { code: 'INVALID_PAYLOAD', message: 'Name and token are required' })
+      return
+    }
+
+    const roomId = nanoid(10)
+    const roundId = uuid()
+    const moderatorToken = await bcrypt.hash(participantToken, config.bcryptRounds)
+
+    createRoom({ roomId, moderatorToken, storyTitle, roundId })
+    upsertParticipant({ participantId: participantToken, roomId, name: name.trim(), socketId: socket.id, isModerator: true })
+    addSocketToRoom(roomId, socket.id)
+
+    await socket.join(roomId)
+
+    const room = buildRoomState(roomId)!
+    socket.emit(EVENTS.ROOM_CREATED, { room })
+  })
+
+  socket.on(EVENTS.ROOM_JOIN, async (payload: JoinRoomPayload) => {
+    const { roomId, name, participantToken } = payload
+
+    if (!roomId || !name?.trim() || !participantToken) {
+      socket.emit(EVENTS.ROOM_ERROR, { code: 'INVALID_PAYLOAD', message: 'Room ID, name and token are required' })
+      return
+    }
+
+    const roomRecord = getRoom(roomId)
+    if (!roomRecord) {
+      socket.emit(EVENTS.ROOM_ERROR, { code: 'ROOM_NOT_FOUND', message: 'Room not found' })
+      return
+    }
+
+    upsertParticipant({ participantId: participantToken, roomId, name: name.trim(), socketId: socket.id, isModerator: false })
+    addSocketToRoom(roomId, socket.id)
+
+    await socket.join(roomId)
+
+    const room = buildRoomState(roomId)!
+    socket.emit(EVENTS.ROOM_STATE, { room })
+
+    socket.to(roomId).emit(EVENTS.PARTICIPANT_JOINED, {
+      participant: room.participants.find(p => p.participantId === participantToken),
+    })
+  })
+
+  socket.on('disconnect', () => {
+    const row = getParticipantBySocket(socket.id)
+    if (!row) return
+
+    disconnectParticipant(socket.id)
+    removeSocketFromRoom(row.room_id, socket.id)
+
+    io.to(row.room_id).emit(EVENTS.PARTICIPANT_LEFT, { participantId: row.participant_id })
+  })
+}
