@@ -1,4 +1,4 @@
-import { db } from './client'
+import { getAsync, allAsync, runAsync } from './client'
 import type { RoomPhase, ParticipantPublic, VoteResults, RoomState, VoteEntry } from '@pokaface/shared'
 import { isNumericCard } from '@pokaface/shared'
 import type { CardValue } from '@pokaface/shared'
@@ -39,104 +39,106 @@ function parseCard(raw: string): CardValue {
   return parseInt(raw, 10) as CardValue
 }
 
-export function createRoom(params: {
+export async function createRoom(params: {
   roomId: string
   moderatorToken: string
   storyTitle: string
   roundId: string
 }) {
-  db.prepare(`
-    INSERT INTO rooms (room_id, moderator_token, story_title, round_id)
-    VALUES (@roomId, @moderatorToken, @storyTitle, @roundId)
-  `).run(params)
+  await runAsync(
+    `INSERT INTO rooms (room_id, moderator_token, story_title, round_id) VALUES (?, ?, ?, ?)`,
+    [params.roomId, params.moderatorToken, params.storyTitle, params.roundId],
+  )
 }
 
-export function getRoom(roomId: string): RoomRow | undefined {
-  return db.prepare(`SELECT * FROM rooms WHERE room_id = ?`).get(roomId) as RoomRow | undefined
+export async function getRoom(roomId: string): Promise<RoomRow | undefined> {
+  return getAsync(`SELECT * FROM rooms WHERE room_id = ?`, [roomId])
 }
 
-export function touchRoom(roomId: string) {
-  db.prepare(`UPDATE rooms SET last_activity_at = datetime('now') WHERE room_id = ?`).run(roomId)
+export async function touchRoom(roomId: string) {
+  await runAsync(`UPDATE rooms SET last_activity_at = datetime('now') WHERE room_id = ?`, [roomId])
 }
 
-export function updateRoomPhase(roomId: string, phase: RoomPhase, roundId?: string) {
+export async function updateRoomPhase(roomId: string, phase: RoomPhase, roundId?: string) {
   if (roundId) {
-    db.prepare(`UPDATE rooms SET phase = ?, round_id = ?, last_activity_at = datetime('now') WHERE room_id = ?`)
-      .run(phase, roundId, roomId)
+    await runAsync(
+      `UPDATE rooms SET phase = ?, round_id = ?, last_activity_at = datetime('now') WHERE room_id = ?`,
+      [phase, roundId, roomId],
+    )
   } else {
-    db.prepare(`UPDATE rooms SET phase = ?, last_activity_at = datetime('now') WHERE room_id = ?`)
-      .run(phase, roomId)
+    await runAsync(`UPDATE rooms SET phase = ?, last_activity_at = datetime('now') WHERE room_id = ?`, [phase, roomId])
   }
 }
 
-export function updateStoryTitle(roomId: string, storyTitle: string) {
-  db.prepare(`UPDATE rooms SET story_title = ?, last_activity_at = datetime('now') WHERE room_id = ?`)
-    .run(storyTitle, roomId)
+export async function updateStoryTitle(roomId: string, storyTitle: string) {
+  await runAsync(
+    `UPDATE rooms SET story_title = ?, last_activity_at = datetime('now') WHERE room_id = ?`,
+    [storyTitle, roomId],
+  )
 }
 
-export function upsertParticipant(params: {
+export async function upsertParticipant(params: {
   participantId: string
   roomId: string
   name: string
   socketId: string
   isModerator: boolean
 }) {
-  const existing = db.prepare(`
-    SELECT participant_id FROM participants WHERE participant_id = ? AND room_id = ?
-  `).get(params.participantId, params.roomId)
+  const existing = await getAsync(
+    `SELECT participant_id FROM participants WHERE participant_id = ? AND room_id = ?`,
+    [params.participantId, params.roomId],
+  )
 
   if (existing) {
-    db.prepare(`
-      UPDATE participants
-      SET socket_id = @socketId, is_connected = 1, name = @name
-      WHERE participant_id = @participantId AND room_id = @roomId
-    `).run({ socketId: params.socketId, name: params.name, participantId: params.participantId, roomId: params.roomId })
+    await runAsync(
+      `UPDATE participants SET socket_id = ?, is_connected = 1, name = ? WHERE participant_id = ? AND room_id = ?`,
+      [params.socketId, params.name, params.participantId, params.roomId],
+    )
   } else {
-    db.prepare(`
-      INSERT INTO participants (participant_id, room_id, name, socket_id, is_connected, is_moderator)
-      VALUES (@participantId, @roomId, @name, @socketId, 1, @isModerator)
-    `).run({ ...params, isModerator: params.isModerator ? 1 : 0 })
+    await runAsync(
+      `INSERT INTO participants (participant_id, room_id, name, socket_id, is_connected, is_moderator) VALUES (?, ?, ?, ?, 1, ?)`,
+      [params.participantId, params.roomId, params.name, params.socketId, params.isModerator ? 1 : 0],
+    )
   }
 }
 
-export function disconnectParticipant(socketId: string) {
-  db.prepare(`
-    UPDATE participants SET is_connected = 0, socket_id = NULL WHERE socket_id = ?
-  `).run(socketId)
+export async function disconnectParticipant(socketId: string) {
+  await runAsync(`UPDATE participants SET is_connected = 0, socket_id = NULL WHERE socket_id = ?`, [socketId])
 }
 
-export function getParticipantBySocket(socketId: string): ParticipantRow | undefined {
-  return db.prepare(`SELECT * FROM participants WHERE socket_id = ?`).get(socketId) as ParticipantRow | undefined
+export async function getParticipantBySocket(socketId: string): Promise<ParticipantRow | undefined> {
+  return getAsync(`SELECT * FROM participants WHERE socket_id = ?`, [socketId])
 }
 
-export function getParticipant(participantId: string, roomId: string): ParticipantRow | undefined {
-  return db.prepare(`SELECT * FROM participants WHERE participant_id = ? AND room_id = ?`)
-    .get(participantId, roomId) as ParticipantRow | undefined
+export async function getParticipant(participantId: string, roomId: string): Promise<ParticipantRow | undefined> {
+  return getAsync(`SELECT * FROM participants WHERE participant_id = ? AND room_id = ?`, [participantId, roomId])
 }
 
-export function setVote(participantId: string, roomId: string, card: CardValue) {
-  db.prepare(`UPDATE participants SET card = ? WHERE participant_id = ? AND room_id = ?`)
-    .run(String(card), participantId, roomId)
+export async function setVote(participantId: string, roomId: string, card: CardValue) {
+  await runAsync(`UPDATE participants SET card = ? WHERE participant_id = ? AND room_id = ?`, [
+    String(card),
+    participantId,
+    roomId,
+  ])
 }
 
-export function clearVotes(roomId: string) {
-  db.prepare(`UPDATE participants SET card = NULL WHERE room_id = ?`).run(roomId)
+export async function clearVotes(roomId: string) {
+  await runAsync(`UPDATE participants SET card = NULL WHERE room_id = ?`, [roomId])
 }
 
-export function removeParticipant(participantId: string, roomId: string) {
-  db.prepare(`DELETE FROM participants WHERE participant_id = ? AND room_id = ?`)
-    .run(participantId, roomId)
+export async function removeParticipant(participantId: string, roomId: string) {
+  await runAsync(`DELETE FROM participants WHERE participant_id = ? AND room_id = ?`, [participantId, roomId])
 }
 
-export function getRoomParticipants(roomId: string): ParticipantRow[] {
-  return db.prepare(`SELECT * FROM participants WHERE room_id = ? ORDER BY joined_at`).all(roomId) as ParticipantRow[]
+export async function getRoomParticipants(roomId: string): Promise<ParticipantRow[]> {
+  return allAsync(`SELECT * FROM participants WHERE room_id = ? ORDER BY joined_at`, [roomId])
 }
 
-export function buildRoomState(roomId: string): RoomState | null {
-  const room = getRoom(roomId)
+export async function buildRoomState(roomId: string): Promise<RoomState | null> {
+  const room = await getRoom(roomId)
   if (!room) return null
 
-  const rows = getRoomParticipants(roomId)
+  const rows = await getRoomParticipants(roomId)
   const participants = rows.map(rowToPublic)
 
   let results: VoteResults | null = null
@@ -189,8 +191,6 @@ function computeResults(votes: VoteEntry[]): VoteResults {
   return { votes, average, mode, dispersion, consensus }
 }
 
-export function cleanupOldRooms(ttlDays: number) {
-  db.prepare(`
-    DELETE FROM rooms WHERE last_activity_at < datetime('now', '-' || ? || ' days')
-  `).run(ttlDays)
+export async function cleanupOldRooms(ttlDays: number) {
+  await runAsync(`DELETE FROM rooms WHERE last_activity_at < datetime('now', '-' || ? || ' days')`, [ttlDays])
 }

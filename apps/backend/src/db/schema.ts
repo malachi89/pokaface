@@ -1,7 +1,7 @@
-import { db } from './client'
+import { db, runAsync, allAsync } from './client'
 
-export function runMigrations() {
-  db.exec(`
+export async function runMigrations() {
+  const schema = `
     CREATE TABLE IF NOT EXISTS rooms (
       room_id          TEXT PRIMARY KEY,
       moderator_token  TEXT NOT NULL,
@@ -27,9 +27,16 @@ export function runMigrations() {
 
     CREATE INDEX IF NOT EXISTS idx_participants_room ON participants(room_id);
     CREATE INDEX IF NOT EXISTS idx_rooms_activity   ON rooms(last_activity_at);
-  `)
+  `
+
+  return new Promise<void>((resolve, reject) => {
+    db.exec(schema, (err) => {
+      if (err) reject(err)
+      else resolve()
+    })
+  })
 }
 
-export function resetConnections() {
-  db.prepare(`UPDATE participants SET is_connected = 0, socket_id = NULL`).run()
+export async function resetConnections() {
+  await runAsync(`UPDATE participants SET is_connected = 0, socket_id = NULL`)
 }

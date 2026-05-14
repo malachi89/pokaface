@@ -11,68 +11,95 @@ import {
   disconnectParticipant,
   getParticipantBySocket,
   buildRoomState,
-  getRoomParticipants,
 } from '../../db/queries'
 import { addSocketToRoom, removeSocketFromRoom } from '../rooms'
 import { config } from '../../config'
 
 export function registerRoomHandlers(io: Server, socket: Socket) {
   socket.on(EVENTS.ROOM_CREATE, async (payload: CreateRoomPayload) => {
-    const { name, participantToken, storyTitle = '' } = payload
+    try {
+      const { name, participantToken, storyTitle = '' } = payload
 
-    if (!name?.trim() || !participantToken) {
-      socket.emit(EVENTS.ROOM_ERROR, { code: 'INVALID_PAYLOAD', message: 'Name and token are required' })
-      return
+      if (!name?.trim() || !participantToken) {
+        socket.emit(EVENTS.ROOM_ERROR, { code: 'INVALID_PAYLOAD', message: 'Name and token are required' })
+        return
+      }
+
+      const roomId = nanoid(10)
+      const roundId = uuid()
+      const moderatorToken = await bcrypt.hash(participantToken, config.bcryptRounds)
+
+      await createRoom({ roomId, moderatorToken, storyTitle, roundId })
+      await upsertParticipant({
+        participantId: participantToken,
+        roomId,
+        name: name.trim(),
+        socketId: socket.id,
+        isModerator: true,
+      })
+      addSocketToRoom(roomId, socket.id)
+
+      await socket.join(roomId)
+
+      const room = await buildRoomState(roomId)
+      if (room) {
+        socket.emit(EVENTS.ROOM_CREATED, { room })
+      }
+    } catch (err) {
+      socket.emit(EVENTS.ROOM_ERROR, { code: 'ERROR', message: 'Failed to create room' })
     }
-
-    const roomId = nanoid(10)
-    const roundId = uuid()
-    const moderatorToken = await bcrypt.hash(participantToken, config.bcryptRounds)
-
-    createRoom({ roomId, moderatorToken, storyTitle, roundId })
-    upsertParticipant({ participantId: participantToken, roomId, name: name.trim(), socketId: socket.id, isModerator: true })
-    addSocketToRoom(roomId, socket.id)
-
-    await socket.join(roomId)
-
-    const room = buildRoomState(roomId)!
-    socket.emit(EVENTS.ROOM_CREATED, { room })
   })
 
   socket.on(EVENTS.ROOM_JOIN, async (payload: JoinRoomPayload) => {
-    const { roomId, name, participantToken } = payload
+    try {
+      const { roomId, name, participantToken } = payload
 
-    if (!roomId || !name?.trim() || !participantToken) {
-      socket.emit(EVENTS.ROOM_ERROR, { code: 'INVALID_PAYLOAD', message: 'Room ID, name and token are required' })
-      return
+      if (!roomId || !name?.trim() || !participantToken) {
+        socket.emit(EVENTS.ROOM_ERROR, { code: 'INVALID_PAYLOAD', message: 'Room ID, name and token are required' })
+        return
+      }
+
+      const roomRecord = await getRoom(roomId)
+      if (!roomRecord) {
+        socket.emit(EVENTS.ROOM_ERROR, { code: 'ROOM_NOT_FOUND', message: 'Room not found' })
+        return
+      }
+
+      await upsertParticipant({
+        participantId: participantToken,
+        roomId,
+        name: name.trim(),
+        socketId: socket.id,
+        isModerator: false,
+      })
+      addSocketToRoom(roomId, socket.id)
+
+      await socket.join(roomId)
+
+      const room = await buildRoomState(roomId)
+      if (room) {
+        socket.emit(EVENTS.ROOM_STATE, { room })
+
+        socket.to(roomId).emit(EVENTS.PARTICIPANT_JOINED, {
+          participant: room.participants.find(p => p.participantId === participantToken),
+        })
+      }
+    } catch (err) {
+      socket.emit(EVENTS.ROOM_ERROR, { code: 'ERROR', message: 'Failed to join room' })
     }
-
-    const roomRecord = getRoom(roomId)
-    if (!roomRecord) {
-      socket.emit(EVENTS.ROOM_ERROR, { code: 'ROOM_NOT_FOUND', message: 'Room not found' })
-      return
-    }
-
-    upsertParticipant({ participantId: participantToken, roomId, name: name.trim(), socketId: socket.id, isModerator: false })
-    addSocketToRoom(roomId, socket.id)
-
-    await socket.join(roomId)
-
-    const room = buildRoomState(roomId)!
-    socket.emit(EVENTS.ROOM_STATE, { room })
-
-    socket.to(roomId).emit(EVENTS.PARTICIPANT_JOINED, {
-      participant: room.participants.find(p => p.participantId === participantToken),
-    })
   })
 
-  socket.on('disconnect', () => {
-    const row = getParticipantBySocket(socket.id)
-    if (!row) return
+  socket.on('disconnect', async () => {
+    try {
+      const row = await getParticipantBySocket(socket.id)
+      if (!row) return
 
-    disconnectParticipant(socket.id)
-    removeSocketFromRoom(row.room_id, socket.id)
+      await disconnectParticipant(socket.id)
+      removeSocketFromRoom(row.room_id, socket.id)
 
-    io.to(row.room_id).emit(EVENTS.PARTICIPANT_LEFT, { participantId: row.participant_id })
+      io.to(row.room_id).emit(EVENTS.PARTICIPANT_LEFT, { participantId: row.participant_id })
+    } catch (err) {
+      console.error('Disconnect error:', err)
+    }
   })
 }

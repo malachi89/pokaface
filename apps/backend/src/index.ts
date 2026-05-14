@@ -7,23 +7,32 @@ import { cleanupOldRooms } from './db/queries'
 import { createSocketServer } from './socket'
 import router from './http/router'
 
-runMigrations()
-resetConnections()
-cleanupOldRooms(config.roomTtlDays)
+async function start() {
+  try {
+    await runMigrations()
+    await resetConnections()
+    await cleanupOldRooms(config.roomTtlDays)
 
-const app = express()
+    const app = express()
 
-app.use(cors({ origin: config.frontendOrigin, credentials: true }))
-app.use(express.json())
-app.use('/api', router)
+    app.use(cors({ origin: config.frontendOrigin, credentials: true }))
+    app.use(express.json())
+    app.use('/api', router)
 
-const httpServer = http.createServer(app)
-createSocketServer(httpServer)
+    const httpServer = http.createServer(app)
+    createSocketServer(httpServer)
 
-httpServer.listen(config.port, () => {
-  console.log(`Backend running on port ${config.port}`)
-})
+    httpServer.listen(config.port, () => {
+      console.log(`Backend running on port ${config.port}`)
+    })
 
-setInterval(() => {
-  cleanupOldRooms(config.roomTtlDays)
-}, 1000 * 60 * 60 * 24)
+    setInterval(async () => {
+      await cleanupOldRooms(config.roomTtlDays)
+    }, 1000 * 60 * 60 * 24)
+  } catch (err) {
+    console.error('Failed to start server:', err)
+    process.exit(1)
+  }
+}
+
+start()

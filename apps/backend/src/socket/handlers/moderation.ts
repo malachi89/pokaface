@@ -9,57 +9,69 @@ import {
   getRoomParticipants,
 } from '../../db/queries'
 
-function getModeratorRow(socket: Socket, roomId: string) {
-  const row = getParticipantBySocket(socket.id)
+async function getModeratorRow(socket: Socket, roomId: string) {
+  const row = await getParticipantBySocket(socket.id)
   if (!row || row.room_id !== roomId || row.is_moderator !== 1) return null
   return row
 }
 
 export function registerModerationHandlers(io: Server, socket: Socket) {
-  socket.on(EVENTS.PARTICIPANT_KICK, (payload: KickParticipantPayload) => {
-    const { roomId, targetParticipantId } = payload
+  socket.on(EVENTS.PARTICIPANT_KICK, async (payload: KickParticipantPayload) => {
+    try {
+      const { roomId, targetParticipantId } = payload
 
-    if (!getModeratorRow(socket, roomId)) {
-      socket.emit(EVENTS.ROOM_ERROR, { code: 'FORBIDDEN', message: 'Only the moderator can kick participants' })
-      return
+      if (!(await getModeratorRow(socket, roomId))) {
+        socket.emit(EVENTS.ROOM_ERROR, { code: 'FORBIDDEN', message: 'Only the moderator can kick participants' })
+        return
+      }
+
+      const participants = await getRoomParticipants(roomId)
+      const target = participants.find(p => p.participant_id === targetParticipantId)
+
+      if (!target) {
+        socket.emit(EVENTS.ROOM_ERROR, { code: 'NOT_FOUND', message: 'Participant not found' })
+        return
+      }
+
+      if (target.is_moderator === 1) {
+        socket.emit(EVENTS.ROOM_ERROR, { code: 'FORBIDDEN', message: 'Cannot kick the moderator' })
+        return
+      }
+
+      if (target.socket_id) {
+        io.to(target.socket_id).emit(EVENTS.ROOM_KICKED, { reason: 'You were removed by the moderator' })
+      }
+
+      await removeParticipant(targetParticipantId, roomId)
+
+      io.to(roomId).emit(EVENTS.PARTICIPANT_KICKED, { participantId: targetParticipantId })
+
+      const room = await buildRoomState(roomId)
+      if (room) {
+        io.to(roomId).emit(EVENTS.ROOM_UPDATED, { room })
+      }
+    } catch (err) {
+      socket.emit(EVENTS.ROOM_ERROR, { code: 'ERROR', message: 'Failed to kick participant' })
     }
-
-    const participants = getRoomParticipants(roomId)
-    const target = participants.find(p => p.participant_id === targetParticipantId)
-
-    if (!target) {
-      socket.emit(EVENTS.ROOM_ERROR, { code: 'NOT_FOUND', message: 'Participant not found' })
-      return
-    }
-
-    if (target.is_moderator === 1) {
-      socket.emit(EVENTS.ROOM_ERROR, { code: 'FORBIDDEN', message: 'Cannot kick the moderator' })
-      return
-    }
-
-    if (target.socket_id) {
-      io.to(target.socket_id).emit(EVENTS.ROOM_KICKED, { reason: 'You were removed by the moderator' })
-    }
-
-    removeParticipant(targetParticipantId, roomId)
-
-    io.to(roomId).emit(EVENTS.PARTICIPANT_KICKED, { participantId: targetParticipantId })
-
-    const room = buildRoomState(roomId)!
-    io.to(roomId).emit(EVENTS.ROOM_UPDATED, { room })
   })
 
-  socket.on(EVENTS.STORY_CHANGE, (payload: ChangeStoryPayload) => {
-    const { roomId, storyTitle } = payload
+  socket.on(EVENTS.STORY_CHANGE, async (payload: ChangeStoryPayload) => {
+    try {
+      const { roomId, storyTitle } = payload
 
-    if (!getModeratorRow(socket, roomId)) {
-      socket.emit(EVENTS.ROOM_ERROR, { code: 'FORBIDDEN', message: 'Only the moderator can change the story' })
-      return
+      if (!(await getModeratorRow(socket, roomId))) {
+        socket.emit(EVENTS.ROOM_ERROR, { code: 'FORBIDDEN', message: 'Only the moderator can change the story' })
+        return
+      }
+
+      await updateStoryTitle(roomId, storyTitle)
+
+      const room = await buildRoomState(roomId)
+      if (room) {
+        io.to(roomId).emit(EVENTS.ROOM_UPDATED, { room })
+      }
+    } catch (err) {
+      socket.emit(EVENTS.ROOM_ERROR, { code: 'ERROR', message: 'Failed to change story' })
     }
-
-    updateStoryTitle(roomId, storyTitle)
-
-    const room = buildRoomState(roomId)!
-    io.to(roomId).emit(EVENTS.ROOM_UPDATED, { room })
   })
 }
