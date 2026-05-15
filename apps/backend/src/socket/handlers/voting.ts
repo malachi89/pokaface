@@ -4,7 +4,7 @@ import { EVENTS, FIBONACCI_CARDS } from '@pokaface/shared'
 import type { SubmitVotePayload, StartVotePayload, RevealVotePayload, ResetVotePayload } from '@pokaface/shared'
 import type { CardValue } from '@pokaface/shared'
 import {
-  getParticipantBySocket,
+  getParticipantBySocketAndRoom,
   setVote,
   updateRoomPhase,
   clearVotes,
@@ -14,8 +14,8 @@ import {
 } from '../../db/queries'
 
 async function getModeratorParticipant(socket: Socket, roomId: string) {
-  const row = await getParticipantBySocket(socket.id)
-  if (!row || row.room_id !== roomId || row.is_moderator !== 1) return null
+  const row = await getParticipantBySocketAndRoom(socket.id, roomId)
+  if (!row || row.is_moderator !== 1) return null
   return row
 }
 
@@ -48,9 +48,9 @@ export function registerVotingHandlers(io: Server, socket: Socket) {
   socket.on(EVENTS.VOTE_SUBMIT, async (payload: SubmitVotePayload) => {
     try {
       const { roomId, card } = payload
-      const row = await getParticipantBySocket(socket.id)
+      const row = await getParticipantBySocketAndRoom(socket.id, roomId)
 
-      if (!row || row.room_id !== roomId) {
+      if (!row) {
         socket.emit(EVENTS.ROOM_ERROR, { code: 'FORBIDDEN', message: 'Not in this room' })
         return
       }

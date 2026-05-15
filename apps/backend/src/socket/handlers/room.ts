@@ -13,7 +13,7 @@ import {
   getRoom,
   upsertParticipant,
   disconnectParticipant,
-  getParticipantBySocket,
+  getParticipantsBySocket,
   buildRoomState,
 } from '../../db/queries'
 import { addSocketToRoom, removeSocketFromRoom } from '../rooms'
@@ -92,13 +92,15 @@ export function registerRoomHandlers(io: Server, socket: Socket) {
 
   socket.on('disconnect', async () => {
     try {
-      const row = await getParticipantBySocket(socket.id)
-      if (!row) return
+      const rows = await getParticipantsBySocket(socket.id)
+      if (!rows.length) return
 
       await disconnectParticipant(socket.id)
-      removeSocketFromRoom(row.room_id, socket.id)
 
-      io.to(row.room_id).emit(EVENTS.PARTICIPANT_LEFT, { participantId: row.participant_id })
+      for (const row of rows) {
+        removeSocketFromRoom(row.room_id, socket.id)
+        io.to(row.room_id).emit(EVENTS.PARTICIPANT_LEFT, { participantId: row.participant_id })
+      }
     } catch (err) {
       console.error('Disconnect error:', err)
     }

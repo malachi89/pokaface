@@ -2,7 +2,7 @@ import type { Socket, Server } from 'socket.io'
 import { EVENTS } from '@pokaface/shared'
 import type { KickParticipantPayload, ChangeStoryPayload } from '@pokaface/shared'
 import {
-  getParticipantBySocket,
+  getParticipantBySocketAndRoom,
   removeParticipant,
   updateStoryTitle,
   buildRoomState,
@@ -10,8 +10,8 @@ import {
 } from '../../db/queries'
 
 async function getModeratorRow(socket: Socket, roomId: string) {
-  const row = await getParticipantBySocket(socket.id)
-  if (!row || row.room_id !== roomId || row.is_moderator !== 1) return null
+  const row = await getParticipantBySocketAndRoom(socket.id, roomId)
+  if (!row || row.is_moderator !== 1) return null
   return row
 }
 

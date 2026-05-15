@@ -112,6 +112,14 @@ export async function getParticipantBySocket(socketId: string): Promise<Particip
   return getAsync(`SELECT * FROM participants WHERE socket_id = ?`, [socketId])
 }
 
+export async function getParticipantsBySocket(socketId: string): Promise<ParticipantRow[]> {
+  return allAsync(`SELECT * FROM participants WHERE socket_id = ?`, [socketId])
+}
+
+export async function getParticipantBySocketAndRoom(socketId: string, roomId: string): Promise<ParticipantRow | undefined> {
+  return getAsync(`SELECT * FROM participants WHERE socket_id = ? AND room_id = ?`, [socketId, roomId])
+}
+
 export async function getParticipant(participantId: string, roomId: string): Promise<ParticipantRow | undefined> {
   return getAsync(`SELECT * FROM participants WHERE participant_id = ? AND room_id = ?`, [participantId, roomId])
 }
