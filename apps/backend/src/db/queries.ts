@@ -170,7 +170,7 @@ function computeResults(votes: VoteEntry[]): VoteResults {
   const numericVotes = votes.filter(v => isNumericCard(v.card)).map(v => v.card as number)
 
   const average = numericVotes.length > 0
-    ? Math.round((numericVotes.reduce((a, b) => a + b, 0) / numericVotes.length) * 10) / 10
+    ? Math.round((numericVotes.reduce((a, b) => a + b, 0) / numericVotes.length) * 100) / 100
     : null
 
   const dispersion = numericVotes.length > 1

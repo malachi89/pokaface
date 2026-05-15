@@ -12,12 +12,14 @@ interface ParticipantListProps {
 }
 
 export function ParticipantList({ participants, onKick, isModerator = false }: ParticipantListProps) {
+  const connected = participants.filter(p => p.isConnected)
+
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-semibold text-muted uppercase tracking-wide">Participants ({participants.length})</h3>
+      <h3 className="text-sm font-semibold text-muted uppercase tracking-wide">Participants ({connected.length})</h3>
 
       <div className="space-y-2">
-        {participants.map(participant => (
+        {connected.map(participant => (
           <div key={participant.participantId} className="flex items-center justify-between p-3 bg-surface-2 rounded-lg">
             <div className="flex items-center gap-3 min-w-0">
               <Avatar seed={participant.name} size={36} />
@@ -33,11 +35,6 @@ export function ParticipantList({ participants, onKick, isModerator = false }: P
                   )}
                   {!participant.hasVoted && !participant.isModerator && (
                     <Badge variant="warning">Waiting</Badge>
-                  )}
-                  {participant.isConnected ? (
-                    <Badge variant="default">Online</Badge>
-                  ) : (
-                    <Badge variant="error">Offline</Badge>
                   )}
                 </div>
               </div>

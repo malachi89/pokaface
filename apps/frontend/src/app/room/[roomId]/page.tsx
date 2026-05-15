@@ -9,11 +9,10 @@ import { RoomHeader } from '@/components/room/RoomHeader'
 import { CardDeck } from '@/components/room/CardDeck'
 import { ParticipantList } from '@/components/room/ParticipantList'
 import { VoteResults } from '@/components/room/VoteResults'
-import { ModeratorPanel } from '@/components/room/ModeratorPanel'
 import { ConnectionBadge } from '@/components/room/ConnectionBadge'
 import { CopyLinkButton } from '@/components/room/CopyLinkButton'
 import { ThemeToggle } from '@/components/ThemeToggle'
-import { VoterProgress } from '@/components/room/VoterProgress'
+import { PokerTable } from '@/components/room/PokerTable'
 import { NameForm } from '@/components/home/NameForm'
 import { VoteStartBanner } from '@/components/room/VoteStartBanner'
 import { Avatar } from '@/components/ui/Avatar'
@@ -167,39 +166,35 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-8">
-            {state.isModerator
-              ? <VoterProgress participants={state.room.participants} />
-              : (
-                <CardDeck
-                  selectedCard={selectedCard}
-                  onSelect={card => {
-                    setSelectedCard(card)
-                    submitVote(card)
-                  }}
-                  disabled={state.room.phase !== 'voting'}
-                  revealed={state.room.phase === 'revealed'}
-                />
-              )
-            }
+            <PokerTable
+              participants={state.room.participants}
+              results={state.room.results}
+              phase={state.room.phase}
+              currentParticipantId={identity.participantToken}
+              isModerator={state.isModerator}
+              onStart={() => startVote(state.room!.storyTitle)}
+              onReveal={revealVotes}
+              onKick={state.isModerator ? kickParticipant : undefined}
+              votedCount={votedCount}
+              totalVoters={voters.length}
+            />
+
+            {!state.isModerator && (
+              <CardDeck
+                selectedCard={selectedCard}
+                onSelect={card => {
+                  setSelectedCard(card)
+                  submitVote(card)
+                }}
+                disabled={state.room.phase !== 'voting'}
+                revealed={state.room.phase === 'revealed'}
+              />
+            )}
 
             {state.room.results && state.room.phase === 'revealed' && <VoteResults results={state.room.results} />}
           </div>
 
           <div className="space-y-8">
-            {state.isModerator && (
-              <ModeratorPanel
-                phase={state.room.phase}
-                onStart={() => startVote(state.room!.storyTitle)}
-                onReveal={revealVotes}
-                onReset={() => {
-                  resetVotes()
-                  setSelectedCard(null)
-                }}
-                votedCount={votedCount}
-                totalParticipants={voters.length}
-              />
-            )}
-
             <ParticipantList
               participants={state.room.participants}
               onKick={state.isModerator ? kickParticipant : undefined}

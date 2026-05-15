@@ -7,29 +7,42 @@ interface VoteResultsProps {
 }
 
 export function VoteResults({ results }: VoteResultsProps) {
+  const distribution = results.votes.reduce<Map<string, number>>((acc, v) => {
+    const key = String(v.card)
+    acc.set(key, (acc.get(key) ?? 0) + 1)
+    return acc
+  }, new Map())
+
+  const sortedEntries = Array.from(distribution.entries()).sort((a, b) => b[1] - a[1])
+
+  const avgDisplay = results.average !== null
+    ? String(Number(results.average.toFixed(2)))
+    : null
+
   return (
     <div className="space-y-6 p-6 bg-surface-2 rounded-lg">
       {results.consensus && (
         <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-600/30 rounded-lg text-center">
-          <p className="text-green-700 dark:text-green-400 font-semibold">Consensus reached! 🎉</p>
+          <p className="text-green-700 dark:text-green-400 font-semibold">Vote completed</p>
         </div>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {results.average !== null && (
+        {avgDisplay !== null && (
           <div className="p-4 bg-surface-3 rounded-lg">
             <p className="text-muted text-xs font-medium uppercase tracking-wide mb-1">Average</p>
-            <p className="text-3xl font-bold text-brand">{results.average}</p>
+            <p className="text-3xl font-bold text-brand">{avgDisplay}</p>
           </div>
         )}
 
         <div className="p-4 bg-surface-3 rounded-lg">
-          <p className="text-muted text-xs font-medium uppercase tracking-wide mb-1">Most Frequent</p>
-          <div className="flex flex-wrap gap-2">
-            {results.mode.map((card, i) => (
-              <span key={i} className="text-xl font-bold text-brand">
-                {typeof card === 'number' ? card : card}
-              </span>
+          <p className="text-muted text-xs font-medium uppercase tracking-wide mb-2">Votes</p>
+          <div className="flex flex-wrap gap-3">
+            {sortedEntries.map(([card, count]) => (
+              <div key={card} className="flex items-baseline gap-1">
+                <span className="text-xl font-bold text-brand">{card}</span>
+                <span className="text-sm text-muted">×{count}</span>
+              </div>
             ))}
           </div>
         </div>
@@ -42,19 +55,6 @@ export function VoteResults({ results }: VoteResultsProps) {
         )}
       </div>
 
-      <div className="space-y-2">
-        <h4 className="text-sm font-semibold text-muted uppercase tracking-wide">All Votes</h4>
-        <div className="space-y-2">
-          {results.votes.map(vote => (
-            <div key={vote.participantId} className="flex items-center justify-between p-3 bg-surface-1 rounded">
-              <span className="text-white">{vote.name}</span>
-              <span className="text-xl font-bold text-brand">
-                {typeof vote.card === 'number' ? vote.card : vote.card}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
     </div>
   )
 }

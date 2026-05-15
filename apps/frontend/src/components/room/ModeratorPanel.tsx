@@ -7,7 +7,6 @@ interface ModeratorPanelProps {
   phase: RoomPhase
   onStart: () => void
   onReveal: () => void
-  onReset: () => void
   votedCount: number
   totalParticipants: number
 }
@@ -16,7 +15,6 @@ export function ModeratorPanel({
   phase,
   onStart,
   onReveal,
-  onReset,
   votedCount,
   totalParticipants,
 }: ModeratorPanelProps) {
@@ -37,25 +35,15 @@ export function ModeratorPanel({
         )}
 
         {phase === 'voting' && (
-          <>
-            <Button onClick={onReveal} variant="primary" size="lg" className="flex-1 min-w-fit">
-              Reveal Votes
-            </Button>
-            <Button onClick={onReset} variant="secondary" size="lg">
-              Reset
-            </Button>
-          </>
+          <Button onClick={onReveal} variant="primary" size="lg" className="flex-1 min-w-fit">
+            Reveal Votes
+          </Button>
         )}
 
         {phase === 'revealed' && (
-          <>
-            <Button onClick={onStart} variant="primary" size="lg" className="flex-1 min-w-fit">
-              Next Story
-            </Button>
-            <Button onClick={onReset} variant="secondary" size="lg">
-              Reset
-            </Button>
-          </>
+          <Button onClick={onStart} variant="primary" size="lg" className="flex-1 min-w-fit">
+            Next Story
+          </Button>
         )}
       </div>
     </div>
