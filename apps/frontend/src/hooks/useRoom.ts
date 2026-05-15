@@ -115,7 +115,7 @@ export function useRoom(roomId: string | null, identity: UserIdentity, socket: S
     }
 
     const handleError = (payload: { code: string; message: string }) => {
-      setState(prev => ({ ...prev, error: payload.message }))
+      setState(prev => ({ ...prev, error: payload.message, connecting: false }))
     }
 
     socket.on(EVENTS.ROOM_STATE, handleRoomState)

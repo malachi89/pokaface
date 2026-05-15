@@ -62,8 +62,9 @@ Frontend build arg: `NEXT_PUBLIC_BACKEND_URL` (defaults to `http://localhost:300
 - Server: `ubuntu@158.101.1.222`, key at `~/Downloads/ssh-key-2026-05-14.key`
 - **Deploy command** (run on server after `git pull`):
   ```bash
-  cd ~/pokaface && git pull && docker-compose up -d --build
+  cd ~/pokaface && git pull && docker-compose down && docker-compose up -d --build
   ```
+  > `down` is required first — docker-compose 1.29.2 throws `KeyError: 'ContainerConfig'` if old containers are still present.
 - Check logs: `docker-compose logs -f`
 - Full deploy guide: `deploy.md` (not committed — lives only locally)
 

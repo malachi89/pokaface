@@ -18,7 +18,9 @@
       "Bash(Start-Sleep -Seconds 5)",
       "Bash(Get-Content \"C:\\\\Users\\\\malch\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-malch-Documents-pokaface\\\\b3adae9b-9999-43e7-b5b4-721463f3da94\\\\tasks\\\\byfvom8sc.output\")",
       "Bash(Select-Object -Last 60)",
-      "PowerShell(docker start pokaface-backend-1 *)"
+      "PowerShell(docker start pokaface-backend-1 *)",
+      "Bash(xargs grep -l \"interface RoomState\\\\|type RoomState\")",
+      "PowerShell(Get-Process *)"
     ]
   }
 }

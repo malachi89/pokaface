@@ -16,6 +16,8 @@ import { PokerTable } from '@/components/room/PokerTable'
 import { NameForm } from '@/components/home/NameForm'
 import { VoteStartBanner } from '@/components/room/VoteStartBanner'
 import { Avatar } from '@/components/ui/Avatar'
+import { Button } from '@/components/ui/Button'
+import Link from 'next/link'
 import type { CardValue } from '@pokaface/shared'
 
 export default function RoomPage({ params }: { params: { roomId: string } }) {
@@ -145,6 +147,7 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
             <ThemeToggle />
             <ConnectionBadge connected={connected} reconnecting={reconnecting} />
             <span className="text-sm text-muted">Room ID: <code className="text-white">{params.roomId}</code></span>
+            <Link href="/"><Button variant="secondary" size="sm">+ New Room</Button></Link>
             <CopyLinkButton roomId={params.roomId} />
           </div>
         </div>

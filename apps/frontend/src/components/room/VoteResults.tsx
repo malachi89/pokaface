@@ -27,7 +27,7 @@ export function VoteResults({ results }: VoteResultsProps) {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {avgDisplay !== null && (
           <div className="p-4 bg-surface-3 rounded-lg">
             <p className="text-muted text-xs font-medium uppercase tracking-wide mb-1">Average</p>
@@ -47,12 +47,6 @@ export function VoteResults({ results }: VoteResultsProps) {
           </div>
         </div>
 
-        {results.dispersion !== null && (
-          <div className="p-4 bg-surface-3 rounded-lg">
-            <p className="text-muted text-xs font-medium uppercase tracking-wide mb-1">Dispersion</p>
-            <p className="text-2xl font-bold text-brand">{results.dispersion}</p>
-          </div>
-        )}
       </div>
 
     </div>
