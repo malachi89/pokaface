@@ -5,6 +5,7 @@ export async function runMigrations() {
     CREATE TABLE IF NOT EXISTS rooms (
       room_id          TEXT PRIMARY KEY,
       moderator_token  TEXT NOT NULL,
+      team_name        TEXT NOT NULL DEFAULT '',
       story_title      TEXT NOT NULL DEFAULT '',
       phase            TEXT NOT NULL DEFAULT 'idle',
       round_id         TEXT NOT NULL,
@@ -29,12 +30,15 @@ export async function runMigrations() {
     CREATE INDEX IF NOT EXISTS idx_rooms_activity   ON rooms(last_activity_at);
   `
 
-  return new Promise<void>((resolve, reject) => {
+  await new Promise<void>((resolve, reject) => {
     db.exec(schema, (err) => {
       if (err) reject(err)
       else resolve()
     })
   })
+
+  // Safe migration for existing databases — silently ignored if column already exists
+  await runAsync(`ALTER TABLE rooms ADD COLUMN team_name TEXT NOT NULL DEFAULT ''`).catch(() => {})
 }
 
 export async function resetConnections() {

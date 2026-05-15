@@ -5,6 +5,7 @@ import { Badge } from '../ui/Badge'
 
 interface RoomHeaderProps {
   roomId: string
+  teamName: string
   storyTitle: string
   onStoryChange?: (title: string) => void
   participantCount: number
@@ -13,6 +14,7 @@ interface RoomHeaderProps {
 
 export function RoomHeader({
   roomId,
+  teamName,
   storyTitle,
   onStoryChange,
   participantCount,
@@ -22,8 +24,11 @@ export function RoomHeader({
     <div className="border-b border-surface-3 pb-6 mb-6">
       <div className="flex items-start justify-between mb-4">
         <div>
-          <h1 className="text-3xl font-bold text-white mb-1">Pokaface</h1>
-          <code className="text-muted text-sm">{roomId}</code>
+          {teamName ? (
+            <h1 className="text-3xl font-bold text-white mb-1">{teamName}</h1>
+          ) : (
+            <h1 className="text-3xl font-bold text-white mb-1">Pokaface</h1>
+          )}
         </div>
 
         <div className="flex items-center gap-2">

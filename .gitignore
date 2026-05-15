@@ -9,4 +9,6 @@ dist/
 .next/
 out/
 *.log
+*.tsbuildinfo
+deploy.md
 .DS_Store

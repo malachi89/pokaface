@@ -6,11 +6,15 @@ import { useIdentity } from '@/hooks/useIdentity'
 import { NameForm } from '@/components/home/NameForm'
 import { JoinForm } from '@/components/home/JoinForm'
 import { ThemeToggle } from '@/components/ThemeToggle'
+import { Input } from '@/components/ui/Input'
+import { Button } from '@/components/ui/Button'
+import { Avatar } from '@/components/ui/Avatar'
 
 export default function HomePage() {
   const router = useRouter()
   const { identity, setName, synced } = useIdentity()
-  const [step, setStep] = useState<'name' | 'action'>('name')
+  const [step, setStep] = useState<'name' | 'action' | 'team'>('name')
+  const [teamName, setTeamName] = useState('')
   const stepInitialized = useRef(false)
 
   useEffect(() => {
@@ -26,6 +30,12 @@ export default function HomePage() {
   }
 
   const handleCreateRoom = () => {
+    setTeamName('')
+    setStep('team')
+  }
+
+  const handleTeamSubmit = () => {
+    sessionStorage.setItem('pokaface_team_name', teamName.trim())
     router.push('/room/new')
   }
 
@@ -44,21 +54,59 @@ export default function HomePage() {
         <p className="text-lg text-muted">Planning Poker</p>
       </div>
 
-      {step === 'name' ? (
+      {step === 'name' && (
         <NameForm defaultName={identity.name} onContinue={handleNameSubmit} />
-      ) : (
+      )}
+
+      {step === 'action' && (
         <JoinForm onJoin={handleJoinRoom} onCreate={handleCreateRoom} />
       )}
 
-      {step === 'action' && identity.name && (
-        <div className="mt-8 text-center text-muted">
-          <p className="text-sm">Logged in as <span className="text-white font-medium">{identity.name}</span></p>
-          <button
-            onClick={() => setStep('name')}
-            className="text-xs text-muted hover:text-white transition-colors mt-2"
+      {step === 'team' && (
+        <form onSubmit={(e) => { e.preventDefault(); handleTeamSubmit() }} className="w-full max-w-sm space-y-6">
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-white">Team name</label>
+            <Input
+              value={teamName}
+              onChange={setTeamName}
+              placeholder="e.g. Squad Alpha"
+              maxLength={50}
+              autoComplete="off"
+            />
+          </div>
+          <Button
+            type="submit"
+            onClick={handleTeamSubmit}
+            variant="primary"
+            size="lg"
+            className="w-full"
           >
-            Change name
+            Create Room
+          </Button>
+          <button
+            type="button"
+            onClick={() => setStep('action')}
+            className="w-full text-sm text-muted hover:text-white transition-colors"
+          >
+            ← Back
           </button>
+        </form>
+      )}
+
+      {(step === 'action' || step === 'team') && identity.name && (
+        <div className="mt-8 flex flex-col items-center gap-2">
+          <div className="flex items-center gap-2 px-3 py-2 bg-surface-2 rounded-full">
+            <Avatar seed={identity.name} size={24} />
+            <span className="text-sm font-medium text-white">{identity.name}</span>
+          </div>
+          {step === 'action' && (
+            <button
+              onClick={() => setStep('name')}
+              className="text-xs text-muted hover:text-white transition-colors"
+            >
+              Change name
+            </button>
+          )}
         </div>
       )}
     </div>

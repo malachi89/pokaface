@@ -10,10 +10,10 @@
   color-scheme: light;
   --color-text-primary: #09090b;
   --color-muted: #71717a;
-  --color-surface: #f8f8fa;
+  --color-surface: #f4f4f5;
   --color-surface-1: #ffffff;
-  --color-surface-2: #f1f1f3;
-  --color-surface-3: #e4e4e7;
+  --color-surface-2: #e4e4e7;
+  --color-surface-3: #d4d4d8;
 }
 
 .dark {

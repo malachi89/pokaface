@@ -8,6 +8,7 @@ interface ButtonProps {
   className?: string
   children: ReactNode
   title?: string
+  type?: 'button' | 'submit' | 'reset'
 }
 
 export function Button({
@@ -18,6 +19,7 @@ export function Button({
   className = '',
   children,
   title,
+  type = 'button',
 }: ButtonProps) {
   const baseClasses =
     'font-medium rounded transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand'
@@ -37,7 +39,7 @@ export function Button({
   const finalClass = `${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${!disabled ? 'cursor-pointer' : 'cursor-not-allowed'} ${className}`
 
   return (
-    <button onClick={onClick} disabled={disabled} className={finalClass} title={title}>
+    <button onClick={onClick} disabled={disabled} className={finalClass} title={title} type={type}>
       {children}
     </button>
   )

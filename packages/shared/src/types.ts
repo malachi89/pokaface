@@ -26,6 +26,7 @@ export interface VoteResults {
 
 export interface RoomState {
   roomId: string
+  teamName: string
   storyTitle: string
   phase: RoomPhase
   roundId: string

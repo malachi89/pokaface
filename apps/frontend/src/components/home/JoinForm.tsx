@@ -15,10 +15,10 @@ export function JoinForm({ onJoin, onCreate }: JoinFormProps) {
   const handlePaste = async () => {
     try {
       const text = await navigator.clipboard.readText()
-      const urlMatch = text.match(/\/room\/([a-z0-9]+)/i)
+      const urlMatch = text.match(/\/room\/([a-z0-9-]+)/i)
       if (urlMatch) {
         setRoomId(urlMatch[1])
-      } else if (/^[a-z0-9]{10}$/i.test(text)) {
+      } else if (/^[a-z0-9-]+$/i.test(text)) {
         setRoomId(text)
       }
     } catch {}
@@ -30,20 +30,26 @@ export function JoinForm({ onJoin, onCreate }: JoinFormProps) {
     }
   }
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    handleJoin()
+  }
+
   return (
-    <div className="w-full max-w-sm space-y-6">
+    <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-6">
       <div className="space-y-2">
         <label className="block text-sm font-medium text-white">Room ID</label>
         <Input
           value={roomId}
           onChange={setRoomId}
           placeholder="Enter room ID or paste link"
-          maxLength={10}
+          maxLength={40}
         />
       </div>
 
       <div className="flex gap-3">
         <Button
+          type="submit"
           onClick={handleJoin}
           disabled={!roomId.trim()}
           variant="primary"
@@ -69,6 +75,6 @@ export function JoinForm({ onJoin, onCreate }: JoinFormProps) {
       <Button onClick={onCreate} variant="secondary" size="lg" className="w-full">
         Create New Room
       </Button>
-    </div>
+    </form>
   )
 }

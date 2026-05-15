@@ -25,6 +25,7 @@ const config: Config = {
         'slide-up': 'slideUp 0.3s ease-out',
         'card-flip': 'cardFlip 0.4s ease-in-out',
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'vote-start': 'voteStart 1.8s ease-out forwards',
       },
       keyframes: {
         fadeIn: {
@@ -39,6 +40,13 @@ const config: Config = {
           '0%': { transform: 'rotateY(0deg)' },
           '50%': { transform: 'rotateY(90deg)' },
           '100%': { transform: 'rotateY(0deg)' },
+        },
+        voteStart: {
+          '0%':   { opacity: '0', transform: 'scale(0.7)' },
+          '20%':  { opacity: '1', transform: 'scale(1.05)' },
+          '35%':  { transform: 'scale(1)' },
+          '75%':  { opacity: '1', transform: 'scale(1)' },
+          '100%': { opacity: '0', transform: 'scale(1)' },
         },
       },
     },

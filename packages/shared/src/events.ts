@@ -29,6 +29,7 @@ export type EventName = (typeof EVENTS)[keyof typeof EVENTS]
 export interface CreateRoomPayload {
   name: string
   participantToken: string
+  teamName?: string
   storyTitle?: string
 }
 

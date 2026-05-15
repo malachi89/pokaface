@@ -15,6 +15,8 @@ import { CopyLinkButton } from '@/components/room/CopyLinkButton'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { VoterProgress } from '@/components/room/VoterProgress'
 import { NameForm } from '@/components/home/NameForm'
+import { VoteStartBanner } from '@/components/room/VoteStartBanner'
+import { Avatar } from '@/components/ui/Avatar'
 import type { CardValue } from '@pokaface/shared'
 
 export default function RoomPage({ params }: { params: { roomId: string } }) {
@@ -34,7 +36,9 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
 
   useEffect(() => {
     if (!socket || !isCreating || !connected || !identity.participantToken || !identity.name) return
-    socket.emit('room:create', { name: identity.name, participantToken: identity.participantToken })
+    const teamName = sessionStorage.getItem('pokaface_team_name') ?? ''
+    sessionStorage.removeItem('pokaface_team_name')
+    socket.emit('room:create', { name: identity.name, participantToken: identity.participantToken, teamName })
     const handleCreated = ({ room }: { room: { roomId: string } }) => {
       router.replace(`/room/${room.roomId}`)
     }
@@ -131,12 +135,17 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
 
   return (
     <div className="min-h-screen bg-surface p-4 md:p-8">
+      <VoteStartBanner phase={state.room.phase} roundId={state.room.roundId} />
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-8">
-          <div />
+          <div className="flex items-center gap-2">
+            <Avatar seed={identity.name} size={32} />
+            <span className="text-sm font-medium text-white">{identity.name}</span>
+          </div>
           <div className="flex items-center gap-4">
             <ThemeToggle />
             <ConnectionBadge connected={connected} reconnecting={reconnecting} />
+            <span className="text-sm text-muted">Room ID: <code className="text-white">{params.roomId}</code></span>
             <CopyLinkButton roomId={params.roomId} />
           </div>
         </div>
@@ -149,6 +158,7 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
 
         <RoomHeader
           roomId={params.roomId}
+          teamName={state.room.teamName}
           storyTitle={state.room.storyTitle}
           onStoryChange={state.isModerator ? changeStory : undefined}
           participantCount={state.room.participants.length}

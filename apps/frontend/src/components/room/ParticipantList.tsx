@@ -3,6 +3,7 @@
 import type { ParticipantPublic } from '@pokaface/shared'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
+import { Avatar } from '../ui/Avatar'
 
 interface ParticipantListProps {
   participants: ParticipantPublic[]
@@ -19,6 +20,7 @@ export function ParticipantList({ participants, onKick, isModerator = false }: P
         {participants.map(participant => (
           <div key={participant.participantId} className="flex items-center justify-between p-3 bg-surface-2 rounded-lg">
             <div className="flex items-center gap-3 min-w-0">
+              <Avatar seed={participant.name} size={36} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="font-medium text-white truncate">{participant.name}</span>

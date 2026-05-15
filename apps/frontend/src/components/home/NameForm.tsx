@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Input } from '../ui/Input'
 import { Button } from '../ui/Button'
+import { Avatar } from '../ui/Avatar'
 
 interface NameFormProps {
   defaultName: string
@@ -21,6 +22,11 @@ export function NameForm({ defaultName, onContinue }: NameFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-6">
+      {name.trim() && (
+        <div className="flex justify-center">
+          <Avatar seed={name.trim()} size={72} />
+        </div>
+      )}
       <div className="space-y-2">
         <label className="block text-sm font-medium text-white">Your Name</label>
         <Input value={name} onChange={setName} placeholder="Enter your name" maxLength={50} />

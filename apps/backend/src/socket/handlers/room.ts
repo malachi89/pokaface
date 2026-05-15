@@ -22,7 +22,7 @@ import { config } from '../../config'
 export function registerRoomHandlers(io: Server, socket: Socket) {
   socket.on(EVENTS.ROOM_CREATE, async (payload: CreateRoomPayload) => {
     try {
-      const { name, participantToken, storyTitle = '' } = payload
+      const { name, participantToken, teamName = '', storyTitle = '' } = payload
 
       if (!name?.trim() || !participantToken) {
         socket.emit(EVENTS.ROOM_ERROR, { code: 'INVALID_PAYLOAD', message: 'Name and token are required' })
@@ -33,7 +33,7 @@ export function registerRoomHandlers(io: Server, socket: Socket) {
       const roundId = uuid()
       const moderatorToken = await bcrypt.hash(participantToken, config.bcryptRounds)
 
-      await createRoom({ roomId, moderatorToken, storyTitle, roundId })
+      await createRoom({ roomId, moderatorToken, teamName: teamName.trim(), storyTitle, roundId })
       await upsertParticipant({
         participantId: participantToken,
         roomId,

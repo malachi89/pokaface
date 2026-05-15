@@ -6,6 +6,7 @@ import type { CardValue } from '@pokaface/shared'
 interface RoomRow {
   room_id: string
   moderator_token: string
+  team_name: string
   story_title: string
   phase: string
   round_id: string
@@ -42,12 +43,13 @@ function parseCard(raw: string): CardValue {
 export async function createRoom(params: {
   roomId: string
   moderatorToken: string
+  teamName: string
   storyTitle: string
   roundId: string
 }) {
   await runAsync(
-    `INSERT INTO rooms (room_id, moderator_token, story_title, round_id) VALUES (?, ?, ?, ?)`,
-    [params.roomId, params.moderatorToken, params.storyTitle, params.roundId],
+    `INSERT INTO rooms (room_id, moderator_token, team_name, story_title, round_id) VALUES (?, ?, ?, ?, ?)`,
+    [params.roomId, params.moderatorToken, params.teamName, params.storyTitle, params.roundId],
   )
 }
 
@@ -154,6 +156,7 @@ export async function buildRoomState(roomId: string): Promise<RoomState | null> 
 
   return {
     roomId: room.room_id,
+    teamName: room.team_name,
     storyTitle: room.story_title,
     phase: room.phase as RoomPhase,
     roundId: room.round_id,
