@@ -46,5 +46,21 @@ export function formatCardValue(card: CardValue): string {
 }
 
 export function copyToClipboard(text: string): Promise<void> {
-  return navigator.clipboard.writeText(text)
+  if (navigator.clipboard?.writeText) {
+    return navigator.clipboard.writeText(text)
+  }
+  try {
+    const ta = document.createElement('textarea')
+    ta.value = text
+    ta.style.position = 'fixed'
+    ta.style.opacity = '0'
+    document.body.appendChild(ta)
+    ta.focus()
+    ta.select()
+    document.execCommand('copy')
+    document.body.removeChild(ta)
+    return Promise.resolve()
+  } catch {
+    return Promise.reject(new Error('Copy not supported'))
+  }
 }

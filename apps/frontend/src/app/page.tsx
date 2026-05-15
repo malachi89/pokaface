@@ -69,7 +69,7 @@ export default function HomePage() {
             <Input
               value={teamName}
               onChange={setTeamName}
-              placeholder="e.g. Squad Alpha"
+              placeholder="Team name"
               maxLength={50}
               autoComplete="off"
             />
