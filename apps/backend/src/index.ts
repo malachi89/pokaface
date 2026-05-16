@@ -4,6 +4,7 @@ import cors from 'cors'
 import { config } from './config'
 import { runMigrations, resetConnections } from './db/schema'
 import { cleanupOldRooms } from './db/queries'
+import { cleanupOldEvents } from './db/events'
 import { createSocketServer } from './socket'
 import router from './http/router'
 
@@ -28,6 +29,7 @@ async function start() {
 
     setInterval(async () => {
       await cleanupOldRooms(config.roomTtlDays)
+      await cleanupOldEvents()
     }, 1000 * 60 * 60 * 24)
   } catch (err) {
     console.error('Failed to start server:', err)

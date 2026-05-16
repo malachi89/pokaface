@@ -18,6 +18,7 @@ import {
 } from '../../db/queries'
 import { addSocketToRoom, removeSocketFromRoom } from '../rooms'
 import { config } from '../../config'
+import { logEvent } from '../../db/events'
 
 export function registerRoomHandlers(io: Server, socket: Socket) {
   socket.on(EVENTS.ROOM_CREATE, async (payload: CreateRoomPayload) => {
@@ -42,6 +43,7 @@ export function registerRoomHandlers(io: Server, socket: Socket) {
         isModerator: true,
       })
       addSocketToRoom(roomId, socket.id)
+      logEvent('room_created', roomId, name.trim())
 
       await socket.join(roomId)
 
@@ -77,6 +79,7 @@ export function registerRoomHandlers(io: Server, socket: Socket) {
         isModerator: false,
       })
       addSocketToRoom(roomId, socket.id)
+      logEvent('participant_joined', roomId, name.trim())
 
       await socket.join(roomId)
 
@@ -98,6 +101,7 @@ export function registerRoomHandlers(io: Server, socket: Socket) {
       await disconnectParticipant(socket.id)
 
       for (const row of rows) {
+        logEvent('participant_disconnected', row.room_id, row.name)
         removeSocketFromRoom(row.room_id, socket.id)
         io.to(row.room_id).emit(EVENTS.PARTICIPANT_LEFT, { participantId: row.participant_id })
       }

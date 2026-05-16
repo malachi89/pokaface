@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { buildRoomState } from '../db/queries'
+import { getAdminStats } from '../db/events'
 
 const router = Router()
 
@@ -17,6 +18,15 @@ router.get('/rooms/:roomId', async (req, res) => {
     res.json({ room })
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch room' })
+  }
+})
+
+router.get('/admin/stats', async (_req, res) => {
+  try {
+    const stats = await getAdminStats()
+    res.json(stats)
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch stats' })
   }
 })
 

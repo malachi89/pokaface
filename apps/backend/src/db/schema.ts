@@ -28,6 +28,15 @@ export async function runMigrations() {
 
     CREATE INDEX IF NOT EXISTS idx_participants_room ON participants(room_id);
     CREATE INDEX IF NOT EXISTS idx_rooms_activity   ON rooms(last_activity_at);
+
+    CREATE TABLE IF NOT EXISTS events (
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      event_type       TEXT NOT NULL,
+      room_id          TEXT,
+      participant_name TEXT,
+      created_at       TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_events_created ON events(created_at DESC);
   `
 
   await new Promise<void>((resolve, reject) => {

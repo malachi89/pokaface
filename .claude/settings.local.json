@@ -20,7 +20,10 @@
       "Bash(Select-Object -Last 60)",
       "PowerShell(docker start pokaface-backend-1 *)",
       "Bash(xargs grep -l \"interface RoomState\\\\|type RoomState\")",
-      "PowerShell(Get-Process *)"
+      "PowerShell(Get-Process *)",
+      "Bash(Get-ChildItem -Path C:\\\\Users\\\\malch\\\\Documents\\\\pokaface -Recurse -Depth 2)",
+      "Bash(Select-Object FullName)",
+      "Bash(New-Item *)"
     ]
   }
 }
