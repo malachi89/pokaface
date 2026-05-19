@@ -17,19 +17,19 @@ export async function cleanupOldEvents(): Promise<void> {
 }
 
 export async function getAdminStats() {
-  const [roomsCreated, participantsJoined, activeRooms, recentEvents] = await Promise.all([
+  const [roomsCreated, participantsJoined, activeRooms, roomsTotal, connectedParticipants] = await Promise.all([
     getAsync(`SELECT COUNT(*) as count FROM events WHERE event_type = 'room_created'`),
     getAsync(`SELECT COUNT(*) as count FROM events WHERE event_type = 'participant_joined'`),
     getAsync(`SELECT COUNT(*) as count FROM rooms WHERE last_activity_at > datetime('now', '-1 hour')`),
-    allAsync(`SELECT id, event_type, room_id, participant_name, created_at FROM events ORDER BY id DESC LIMIT 50`),
+    getAsync(`SELECT COUNT(*) as count FROM rooms`),
+    getAsync(`SELECT COUNT(*) as count FROM participants WHERE is_connected = 1`),
   ])
 
   return {
-    recentEvents,
-    totals: {
-      roomsCreated: roomsCreated?.count ?? 0,
-      participantsJoined: participantsJoined?.count ?? 0,
-      activeRooms: activeRooms?.count ?? 0,
-    },
+    roomsCreated: roomsCreated?.count ?? 0,
+    participantsJoined: participantsJoined?.count ?? 0,
+    activeRooms: activeRooms?.count ?? 0,
+    roomsTotal: roomsTotal?.count ?? 0,
+    connectedParticipants: connectedParticipants?.count ?? 0,
   }
 }
