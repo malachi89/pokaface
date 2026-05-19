@@ -33,9 +33,15 @@ No test runner, no linter, no typecheck configured. `npm run build` is the only 
 - **Moderator auth**: Checks `getParticipantBySocket(socket.id)` and `is_moderator === 1`. No token re-verification after initial join.
 - **Room cleanup**: Rooms inactive > `ROOM_TTL_DAYS` deleted at startup and every 24 h via `setInterval`.
 
+## Events table
+- `events` table logs `room_created`, `participant_joined`, `participant_disconnected` via `logEvent()` in `apps/backend/src/db/events.ts`. Fire-and-forget from socket handlers, never awaited.
+- Old events are deleted after 30 days via `cleanupOldEvents()` (runs in the 24h cleanup interval).
+- `getAdminStats()` queries this table + `rooms` + `participants` for usage stats (rooms created, participants joined, active rooms, connected participants).
+
 ## HTTP endpoints (Express)
 - `GET /api/health` — health check
 - `GET /api/rooms/:roomId` — room state snapshot (SSR fallback), calls `buildRoomState()`
+- `GET /api/admin/stats` — usage stats for the `/admin` dashboard
 
 ## Production
 - 2 Docker containers: frontend (host port 3000) + backend (internal network only, host port 3001)
