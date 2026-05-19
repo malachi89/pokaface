@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { EVENTS } from '@pokaface/shared'
 import type { RoomState, UserIdentity } from '@pokaface/shared'
 import type { Socket } from 'socket.io-client'
@@ -64,10 +64,15 @@ export function useRoom(roomId: string | null, identity: UserIdentity, socket: S
     setState(prev => ({ ...prev, myVote: null }))
   }, [socket, roomId])
 
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
+
   const changeStory = useCallback(
     (storyTitle: string) => {
       if (!socket || !roomId) return
-      socket.emit(EVENTS.STORY_CHANGE, { roomId, storyTitle })
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
+      debounceTimerRef.current = setTimeout(() => {
+        socket.emit(EVENTS.STORY_CHANGE, { roomId, storyTitle })
+      }, 300)
     },
     [socket, roomId],
   )
@@ -132,6 +137,7 @@ export function useRoom(roomId: string | null, identity: UserIdentity, socket: S
       socket.off(EVENTS.ROOM_UPDATED, handleRoomUpdated)
       socket.off(EVENTS.ROOM_KICKED, handleRoomKicked)
       socket.off(EVENTS.ROOM_ERROR, handleError)
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
     }
   }, [socket, connected, roomId, identity, joinRoom])
 
