@@ -10,8 +10,7 @@ services:
       - BCRYPT_ROUNDS=10
       - ROOM_TTL_DAYS=7
       - NODE_ENV=production
-    ports:
-      - "3001:3001"
+    # ports removed — nginx proxies to backend on internal network
     volumes:
       - ./data:/app/data
     networks:
