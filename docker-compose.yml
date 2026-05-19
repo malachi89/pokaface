@@ -10,7 +10,8 @@ services:
       - BCRYPT_ROUNDS=10
       - ROOM_TTL_DAYS=7
       - NODE_ENV=production
-    # ports removed — nginx proxies to backend on internal network
+    ports:
+      - "3001:3001"
     volumes:
       - ./data:/app/data
     networks:
@@ -28,7 +29,8 @@ services:
       dockerfile: apps/frontend/Dockerfile
     environment:
       - NODE_ENV=production
-    # ports removed — nginx proxies to frontend on port 3000
+    ports:
+      - "3000:3000"
     depends_on:
       - backend
     networks:
