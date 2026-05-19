@@ -27,10 +27,8 @@ services:
       context: .
       dockerfile: apps/frontend/Dockerfile
     environment:
-      - NODE_ENV=development
-      - NEXT_PUBLIC_BACKEND_URL=${BACKEND_URL:-http://localhost:3001}
-    ports:
-      - "3000:3000"
+      - NODE_ENV=production
+    # ports removed — nginx proxies to frontend on port 3000
     depends_on:
       - backend
     networks:
