@@ -129,19 +129,25 @@ function TableCenter({
 
       {phase === 'voting' && (
         <>
-          <p className="text-white font-semibold text-lg">
-            {votedCount} <span className="text-muted font-normal text-sm">/ {totalVoters} voted</span>
-          </p>
-          <div className="flex gap-1">
-            {Array.from({ length: totalVoters }).map((_, i) => (
-              <div
-                key={i}
-                className={`w-2 h-2 rounded-full transition-colors ${
-                  i < votedCount ? 'bg-brand' : 'bg-surface-3'
-                }`}
-              />
-            ))}
-          </div>
+          {isModerator ? (
+            <>
+              <p className="text-white font-semibold text-lg">
+                {votedCount} <span className="text-muted font-normal text-sm">/ {totalVoters} voted</span>
+              </p>
+              <div className="flex gap-1">
+                {Array.from({ length: totalVoters }).map((_, i) => (
+                  <div
+                    key={i}
+                    className={`w-2 h-2 rounded-full transition-colors ${
+                      i < votedCount ? 'bg-brand' : 'bg-surface-3'
+                    }`}
+                  />
+                ))}
+              </div>
+            </>
+          ) : (
+            <p className="text-muted text-sm">Cast your vote</p>
+          )}
           {isModerator && onReveal && (
             <div className="flex gap-2 mt-1">
               <Button onClick={onReveal} variant="primary" size="sm">

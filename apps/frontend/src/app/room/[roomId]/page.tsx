@@ -131,7 +131,7 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
     )
   }
 
-  const voters = state.room.participants.filter(p => !p.isModerator)
+  const voters = state.room.participants.filter(p => !p.isModerator && p.isConnected)
   const votedCount = voters.filter(p => p.hasVoted).length
 
   return (
