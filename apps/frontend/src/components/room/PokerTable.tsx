@@ -179,6 +179,12 @@ function TableCenter({
                     </div>
                   ))}
               </div>
+              {results.average !== null && (
+                <div className="mt-3 pt-3 border-t border-surface-3">
+                  <span className="text-muted text-xs font-medium uppercase tracking-wide mr-2">Average</span>
+                  <span className="text-2xl font-bold text-brand">{results.average}</span>
+                </div>
+              )}
             </div>
           ) : (
             <p className="text-muted text-sm">No numeric votes</p>

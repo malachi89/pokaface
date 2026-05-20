@@ -42,7 +42,7 @@ export function JoinForm({ onJoin, onCreate }: JoinFormProps) {
         <Input
           value={roomId}
           onChange={setRoomId}
-          placeholder="Enter room ID or paste link"
+          placeholder="Enter room ID"
           maxLength={40}
         />
       </div>

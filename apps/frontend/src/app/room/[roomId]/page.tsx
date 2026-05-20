@@ -15,6 +15,7 @@ import { PokerTable } from '@/components/room/PokerTable'
 import { NameForm } from '@/components/home/NameForm'
 import { VoteStartBanner } from '@/components/room/VoteStartBanner'
 import { Avatar } from '@/components/ui/Avatar'
+import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import Link from 'next/link'
 import type { CardValue } from '@pokaface/shared'
@@ -33,6 +34,8 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
   )
 
   const [selectedCard, setSelectedCard] = useState<CardValue | null>(null)
+  const [renaming, setRenaming] = useState(false)
+  const [newName, setNewName] = useState('')
   const [storyTitleInput, setStoryTitleInput] = useState<string | null>(null)
   const displayTitle = state.isModerator && storyTitleInput !== null
     ? storyTitleInput
@@ -149,8 +152,26 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-2">
-            <Avatar seed={identity.name} size={32} />
-            <span className="text-sm font-medium text-white">{identity.name}</span>
+            {renaming ? (
+              <form
+                onSubmit={e => { e.preventDefault(); if (newName.trim()) { setName(newName.trim()); setRenaming(false) } }}
+                className="flex items-center gap-2"
+              >
+                <Input
+                  value={newName}
+                  onChange={setNewName}
+                  placeholder="Your name"
+                  maxLength={50}
+                  className="w-36"
+                />
+                <Button type="submit" size="sm">Save</Button>
+              </form>
+            ) : (
+              <button onClick={() => { setNewName(identity.name); setRenaming(true) }} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                <Avatar seed={identity.name} size={32} />
+                <span className="text-sm font-medium text-white">{identity.name}</span>
+              </button>
+            )}
           </div>
           <div className="flex items-center gap-4">
             <ThemeToggle />
@@ -175,7 +196,6 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
             setStoryTitleInput(title)
             changeStory(title)
           } : undefined}
-          participantCount={state.room.participants.length}
           isModerator={state.isModerator}
         />
 
