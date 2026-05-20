@@ -9,7 +9,7 @@ interface Stats {
   connectedParticipants: number
 }
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:3001'
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:3001')
 
 export default function AdminPage() {
   const [stats, setStats] = useState<Stats | null>(null)

@@ -8,7 +8,6 @@ import { useRoom } from '@/hooks/useRoom'
 import { RoomHeader } from '@/components/room/RoomHeader'
 import { CardDeck } from '@/components/room/CardDeck'
 import { ParticipantList } from '@/components/room/ParticipantList'
-import { VoteResults } from '@/components/room/VoteResults'
 import { ConnectionBadge } from '@/components/room/ConnectionBadge'
 import { CopyLinkButton } from '@/components/room/CopyLinkButton'
 import { ThemeToggle } from '@/components/ThemeToggle'
@@ -23,7 +22,7 @@ import type { CardValue } from '@pokaface/shared'
 export default function RoomPage({ params }: { params: { roomId: string } }) {
   const router = useRouter()
   const { identity, setName, synced } = useIdentity()
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || ''
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'
   const { socket, connected, reconnecting } = useSocket(backendUrl)
   const isCreating = params.roomId === 'new'
   const { state, submitVote, startVote, revealVotes, resetVotes, changeStory, kickParticipant } = useRoom(
@@ -34,6 +33,10 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
   )
 
   const [selectedCard, setSelectedCard] = useState<CardValue | null>(null)
+  const [storyTitleInput, setStoryTitleInput] = useState<string | null>(null)
+  const displayTitle = state.isModerator && storyTitleInput !== null
+    ? storyTitleInput
+    : (state.room?.storyTitle ?? '')
 
   useEffect(() => {
     if (!socket || !isCreating || !connected || !identity.participantToken || !identity.name) return
@@ -52,6 +55,12 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
       setTimeout(() => router.push('/'), 2000)
     }
   }, [state.error, router])
+
+  useEffect(() => {
+    if (state.room?.phase === 'idle') {
+      setSelectedCard(null)
+    }
+  }, [state.room?.phase])
 
   useEffect(() => {
     if (state.room && state.room.participants) {
@@ -161,8 +170,11 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
         <RoomHeader
           roomId={params.roomId}
           teamName={state.room.teamName}
-          storyTitle={state.room.storyTitle}
-          onStoryChange={state.isModerator ? changeStory : undefined}
+          storyTitle={displayTitle}
+          onStoryChange={state.isModerator ? (title: string) => {
+            setStoryTitleInput(title)
+            changeStory(title)
+          } : undefined}
           participantCount={state.room.participants.length}
           isModerator={state.isModerator}
         />
@@ -175,7 +187,7 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
               phase={state.room.phase}
               currentParticipantId={identity.participantToken}
               isModerator={state.isModerator}
-              onStart={() => startVote(state.room!.storyTitle)}
+              onStart={() => startVote(displayTitle)}
               onReveal={revealVotes}
               onKick={state.isModerator ? kickParticipant : undefined}
               votedCount={votedCount}
@@ -194,7 +206,6 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
               />
             )}
 
-            {state.room.results && state.room.phase === 'revealed' && <VoteResults results={state.room.results} />}
           </div>
 
           <div className="space-y-8">

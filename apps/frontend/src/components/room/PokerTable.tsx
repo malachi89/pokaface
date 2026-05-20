@@ -160,13 +160,25 @@ function TableCenter({
 
       {phase === 'revealed' && (
         <>
-          {results?.average !== null && results?.average !== undefined ? (
+          {results?.votes.length ? (
             <div className="text-center">
-              <p className="text-muted text-xs uppercase tracking-wide mb-1">Average</p>
-              <p className="text-white text-3xl font-bold">{String(Number(results.average.toFixed(2)))}</p>
-              {results.consensus && (
-                <p className="text-green-400 text-xs mt-1">Vote completed</p>
-              )}
+              <p className="text-green-400 text-sm font-semibold mb-3">Vote completed</p>
+              <div className="flex flex-wrap justify-center gap-3">
+                {Array.from(
+                  results.votes.reduce<Map<string, number>>((acc, v) => {
+                    const key = String(v.card)
+                    acc.set(key, (acc.get(key) ?? 0) + 1)
+                    return acc
+                  }, new Map())
+                )
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([card, count]) => (
+                    <div key={card} className="flex items-baseline gap-1">
+                      <span className="text-xl font-bold text-brand">{card}</span>
+                      <span className="text-sm text-muted">×{count}</span>
+                    </div>
+                  ))}
+              </div>
             </div>
           ) : (
             <p className="text-muted text-sm">No numeric votes</p>
