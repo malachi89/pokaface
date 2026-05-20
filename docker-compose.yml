@@ -28,7 +28,8 @@ services:
       context: .
       dockerfile: apps/frontend/Dockerfile
     environment:
-      - NODE_ENV=development
+      - NODE_ENV=production
+      - NEXT_PUBLIC_BACKEND_URL=
     ports:
       - "3000:3000"
     depends_on:
