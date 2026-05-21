@@ -1,4 +1,4 @@
-import { db, runAsync, allAsync } from './client'
+import { db, runAsync } from './client'
 
 export async function runMigrations() {
   const schema = `
@@ -39,12 +39,7 @@ export async function runMigrations() {
     CREATE INDEX IF NOT EXISTS idx_events_created ON events(created_at DESC);
   `
 
-  await new Promise<void>((resolve, reject) => {
-    db.exec(schema, (err) => {
-      if (err) reject(err)
-      else resolve()
-    })
-  })
+  db.exec(schema)
 
   // Safe migration for existing databases — silently ignored if column already exists
   await runAsync(`ALTER TABLE rooms ADD COLUMN team_name TEXT NOT NULL DEFAULT ''`).catch(() => {})

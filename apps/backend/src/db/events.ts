@@ -1,15 +1,19 @@
-import { db, runAsync, allAsync, getAsync } from './client'
+import { db, runAsync, getAsync } from './client'
 
 export function logEvent(
   eventType: string,
   roomId?: string,
   participantName?: string
 ): void {
-  db.run(
-    `INSERT INTO events (event_type, room_id, participant_name) VALUES (?, ?, ?)`,
-    [eventType, roomId ?? null, participantName ?? null],
-    (err: Error | null) => { if (err) console.error('logEvent error:', err) }
-  )
+  try {
+    db.prepare(`INSERT INTO events (event_type, room_id, participant_name) VALUES (?, ?, ?)`).run(
+      eventType,
+      roomId ?? null,
+      participantName ?? null,
+    )
+  } catch (err) {
+    console.error('logEvent error:', err)
+  }
 }
 
 export async function cleanupOldEvents(): Promise<void> {
