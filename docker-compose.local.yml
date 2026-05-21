@@ -1,0 +1,9 @@
+services:
+  backend:
+    environment:
+      - FRONTEND_ORIGIN=http://localhost:3000
+      - ALLOWED_ORIGINS=http://localhost:3000
+
+  frontend:
+    environment:
+      - NEXT_PUBLIC_BACKEND_URL=http://localhost:3001

@@ -68,7 +68,9 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
   useEffect(() => {
     if (state.room && state.room.participants) {
       const myParticipant = state.room.participants.find(p => p.participantId === identity.participantToken)
-      if (myParticipant?.hasVoted && !selectedCard) {
+      if (myParticipant && !myParticipant.hasVoted && selectedCard) {
+        setSelectedCard(null)
+      } else if (myParticipant?.hasVoted && !selectedCard) {
         const myVotes = state.room.results?.votes.find(v => v.participantId === identity.participantToken)
         if (myVotes) {
           setSelectedCard(myVotes.card)
