@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useIdentity } from '@/hooks/useIdentity'
 import { useSocket } from '@/hooks/useSocket'
 import { useRoom } from '@/hooks/useRoom'
@@ -37,6 +37,7 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
   const [renaming, setRenaming] = useState(false)
   const [newName, setNewName] = useState('')
   const [storyTitleInput, setStoryTitleInput] = useState<string | null>(null)
+  const previousRoundIdRef = useRef<string | null>(null)
   const displayTitle = state.isModerator && storyTitleInput !== null
     ? storyTitleInput
     : (state.room?.storyTitle ?? '')
@@ -66,11 +67,19 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
   }, [state.room?.phase])
 
   useEffect(() => {
+    if (!state.room?.roundId) return
+
+    if (previousRoundIdRef.current && previousRoundIdRef.current !== state.room.roundId) {
+      setSelectedCard(null)
+    }
+
+    previousRoundIdRef.current = state.room.roundId
+  }, [state.room?.roundId])
+
+  useEffect(() => {
     if (state.room && state.room.participants) {
       const myParticipant = state.room.participants.find(p => p.participantId === identity.participantToken)
-      if (myParticipant && !myParticipant.hasVoted && selectedCard) {
-        setSelectedCard(null)
-      } else if (myParticipant?.hasVoted && !selectedCard) {
+      if (myParticipant?.hasVoted && !selectedCard) {
         const myVotes = state.room.results?.votes.find(v => v.participantId === identity.participantToken)
         if (myVotes) {
           setSelectedCard(myVotes.card)
