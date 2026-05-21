@@ -170,6 +170,7 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
               <button onClick={() => { setNewName(identity.name); setRenaming(true) }} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
                 <Avatar seed={identity.name} size={32} />
                 <span className="text-sm font-medium text-white">{identity.name}</span>
+                <span className="text-[10px] text-muted hover:text-white transition-colors">(change)</span>
               </button>
             )}
           </div>
@@ -209,7 +210,6 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
               isModerator={state.isModerator}
               onStart={() => startVote(displayTitle)}
               onReveal={revealVotes}
-              onKick={state.isModerator ? kickParticipant : undefined}
               votedCount={votedCount}
               totalVoters={voters.length}
             />

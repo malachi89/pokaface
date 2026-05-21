@@ -12,7 +12,6 @@ interface PokerTableProps {
   isModerator: boolean
   onStart?: () => void
   onReveal?: () => void
-  onKick?: (participantId: string) => void
   votedCount: number
   totalVoters: number
 }
@@ -46,32 +45,18 @@ interface SeatProps {
   voteValue: CardValue | null
   phase: RoomPhase
   isCurrent: boolean
-  isModView: boolean
-  onKick?: (id: string) => void
   position: 'top' | 'bottom'
 }
 
-function Seat({ participant, voteValue, phase, isCurrent, isModView, onKick, position }: SeatProps) {
-  const canKick = isModView && !participant.isModerator && onKick
-
+function Seat({ participant, voteValue, phase, isCurrent, position }: SeatProps) {
   return (
     <div
-      className={`relative group flex flex-col items-center gap-1 px-2 py-2 rounded-xl border transition-all ${
+      className={`flex flex-col items-center gap-1 px-2 py-2 rounded-xl border transition-all ${
         isCurrent
           ? 'border-brand ring-2 ring-brand ring-offset-2 ring-offset-surface bg-brand/5'
           : 'border-surface-3 bg-surface-2/50'
       }`}
     >
-      {canKick && (
-        <button
-          onClick={() => onKick!(participant.participantId)}
-          className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 hover:bg-red-600 text-white rounded-full text-xs leading-none items-center justify-center hidden group-hover:flex z-10"
-          title="Kick"
-        >
-          ×
-        </button>
-      )}
-
       {position === 'top' ? (
         <>
           <Avatar seed={participant.name} size={40} />
@@ -210,7 +195,6 @@ export function PokerTable({
   isModerator,
   onStart,
   onReveal,
-  onKick,
   votedCount,
   totalVoters,
 }: PokerTableProps) {
@@ -236,8 +220,6 @@ export function PokerTable({
           voteValue={voteMap.get(p.participantId) ?? null}
           phase={phase}
           isCurrent={p.participantId === currentParticipantId}
-          isModView={isModerator}
-          onKick={onKick}
           position={position}
         />
       ))}
