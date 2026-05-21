@@ -5,6 +5,9 @@ let socket: Socket | null = null
 export function getSocket(backendUrl: string): Socket {
   if (!socket) {
     socket = io(backendUrl, {
+      path: '/socket.io/',
+      withCredentials: true,
+      transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 10000,

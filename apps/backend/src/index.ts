@@ -16,7 +16,7 @@ async function start() {
 
     const app = express()
 
-    app.use(cors({ origin: config.frontendOrigin, credentials: true }))
+    app.use(cors({ origin: config.allowedOrigins, credentials: true }))
     app.use(express.json())
     app.use('/api', router)
 

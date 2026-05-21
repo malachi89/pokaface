@@ -6,7 +6,8 @@ services:
     environment:
       - PORT=3001
       - DB_PATH=/app/data/pokaface.db
-      - FRONTEND_ORIGIN=${FRONTEND_ORIGIN:-http://localhost:3000}
+      - FRONTEND_ORIGIN=https://www.pokaface.win
+      - ALLOWED_ORIGINS=https://pokaface.win,https://www.pokaface.win,http://158.101.1.222:3000,http://localhost:3000
       - BCRYPT_ROUNDS=10
       - ROOM_TTL_DAYS=7
       - NODE_ENV=production
@@ -29,7 +30,7 @@ services:
       dockerfile: apps/frontend/Dockerfile
     environment:
       - NODE_ENV=production
-      - NEXT_PUBLIC_BACKEND_URL=
+      - NEXT_PUBLIC_BACKEND_URL=https://api.pokaface.win
     ports:
       - "3000:3000"
     depends_on:

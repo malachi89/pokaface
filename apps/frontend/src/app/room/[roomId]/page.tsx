@@ -23,7 +23,7 @@ import type { CardValue } from '@pokaface/shared'
 export default function RoomPage({ params }: { params: { roomId: string } }) {
   const router = useRouter()
   const { identity, setName, synced } = useIdentity()
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL ?? (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:3001')
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL ?? (process.env.NODE_ENV === 'production' ? 'https://api.pokaface.win' : 'http://localhost:3001')
   const { socket, connected, reconnecting } = useSocket(backendUrl)
   const isCreating = params.roomId === 'new'
   const { state, submitVote, startVote, revealVotes, resetVotes, changeStory, kickParticipant } = useRoom(

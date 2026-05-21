@@ -8,7 +8,7 @@ import { registerModerationHandlers } from './handlers/moderation'
 export function createSocketServer(httpServer: HttpServer): Server {
   const io = new Server(httpServer, {
     cors: {
-      origin: config.frontendOrigin,
+      origin: config.allowedOrigins,
       methods: ['GET', 'POST'],
       credentials: true,
     },
