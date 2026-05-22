@@ -18,6 +18,8 @@
 
 No test runner, linter, formatter, or typecheck configured. `npm run build` is the only verification step.
 
+Do not start local app servers in this workspace (`npm run dev`, `npm run start`, workspace dev servers, or equivalent) unless the user explicitly asks. Docker uses the app ports here. `npm run build` is allowed for verification because it builds the workspaces without starting the frontend or backend servers.
+
 ## Stack quirks
 - **Backend URL resolution** (`apps/frontend/src/app/room/[roomId]/page.tsx:25`): `process.env.NEXT_PUBLIC_BACKEND_URL ?? (NODE_ENV === 'production' ? 'https://api.pokaface.win' : 'http://localhost:3001')`. Same in `admin/page.tsx:12`. Production frontend is `https://www.pokaface.win` and talks to backend at `https://api.pokaface.win`. Local dev should use `http://localhost:3001`. `NEXT_PUBLIC_*` vars are **inlined at build time** by Next.js — rebuild the frontend image when switching prod/local envs.
 - **DB**: `better-sqlite3` is the SQLite client. `db/client.ts` keeps Promise-returning `runAsync`/`getAsync`/`allAsync` wrappers around its synchronous prepared-statement API. No ORM. `runMigrations()` runs `CREATE TABLE IF NOT EXISTS` at startup + one `ALTER TABLE` silently ignored on failure.

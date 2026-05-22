@@ -53,7 +53,7 @@ export default function HomePage() {
         className="absolute left-4 top-4 flex h-28 w-28 flex-col items-center justify-center gap-2 rounded-lg !p-3 text-center shadow-lg shadow-brand/20 sm:h-32 sm:w-32"
       >
         <RetrospectiveIcon />
-        <span className="text-sm font-semibold leading-tight sm:text-base">Retrospective</span>
+        <span className="text-sm font-semibold leading-tight sm:text-base">Retroboards</span>
       </Button>
 
       <div className="absolute top-4 right-4">

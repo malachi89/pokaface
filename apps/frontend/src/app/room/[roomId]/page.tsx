@@ -168,7 +168,6 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
             <UserIdentityControl name={identity.name} onRename={setName} />
             <ThemeToggle />
             <ConnectionBadge connected={connected} reconnecting={reconnecting} />
-            <span className="text-sm text-muted">Room ID: <code className="text-white">{params.roomId}</code></span>
             <Link href="/"><Button variant="secondary" size="sm">+ New Room</Button></Link>
             <CopyLinkButton roomId={params.roomId} />
           </div>

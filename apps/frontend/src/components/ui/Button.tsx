@@ -26,7 +26,7 @@ export function Button({
 
   const variantClasses = {
     primary: 'bg-brand hover:bg-brand-hover text-white disabled:bg-surface-3 disabled:text-muted',
-    secondary: 'bg-surface-2 hover:bg-surface-3 text-white disabled:bg-surface-1 disabled:text-muted',
+    secondary: 'bg-surface-2 hover:bg-surface-3 text-slate-900 dark:text-white disabled:bg-surface-1 disabled:text-muted',
     danger: 'bg-red-600 hover:bg-red-700 text-white disabled:bg-surface-3 disabled:text-muted',
   }
 
