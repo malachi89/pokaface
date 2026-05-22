@@ -48,6 +48,14 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-surface flex flex-col items-center justify-center p-4">
+      <Button
+        onClick={() => router.push('/retrospective')}
+        className="absolute left-4 top-4 flex h-28 w-28 flex-col items-center justify-center gap-2 rounded-lg !p-3 text-center shadow-lg shadow-brand/20 sm:h-32 sm:w-32"
+      >
+        <RetrospectiveIcon />
+        <span className="text-sm font-semibold leading-tight sm:text-base">Retrospective</span>
+      </Button>
+
       <div className="absolute top-4 right-4">
         <ThemeToggle />
       </div>
@@ -62,7 +70,9 @@ export default function HomePage() {
       )}
 
       {step === 'action' && (
-        <JoinForm onJoin={handleJoinRoom} onCreate={handleCreateRoom} />
+        <div className="w-full max-w-sm">
+          <JoinForm onJoin={handleJoinRoom} onCreate={handleCreateRoom} />
+        </div>
       )}
 
       {step === 'team' && (
@@ -122,5 +132,27 @@ export default function HomePage() {
         </div>
       )}
     </div>
+  )
+}
+
+function RetrospectiveIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="h-8 w-8"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M8 6h13" />
+      <path d="M8 12h13" />
+      <path d="M8 18h13" />
+      <path d="m3 6 1 1 2-2" />
+      <path d="m3 12 1 1 2-2" />
+      <path d="m3 18 1 1 2-2" />
+    </svg>
   )
 }

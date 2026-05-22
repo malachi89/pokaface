@@ -4,6 +4,7 @@ import { config } from '../config'
 import { registerRoomHandlers } from './handlers/room'
 import { registerVotingHandlers } from './handlers/voting'
 import { registerModerationHandlers } from './handlers/moderation'
+import { registerRetrospectiveHandlers } from './handlers/retrospective'
 
 export function createSocketServer(httpServer: HttpServer): Server {
   const io = new Server(httpServer, {
@@ -20,6 +21,7 @@ export function createSocketServer(httpServer: HttpServer): Server {
     registerRoomHandlers(io, socket)
     registerVotingHandlers(io, socket)
     registerModerationHandlers(io, socket)
+    registerRetrospectiveHandlers(io, socket)
   })
 
   return io

@@ -11,11 +11,10 @@ import { ParticipantList } from '@/components/room/ParticipantList'
 import { ConnectionBadge } from '@/components/room/ConnectionBadge'
 import { CopyLinkButton } from '@/components/room/CopyLinkButton'
 import { ThemeToggle } from '@/components/ThemeToggle'
+import { UserIdentityControl } from '@/components/UserIdentityControl'
 import { PokerTable } from '@/components/room/PokerTable'
 import { NameForm } from '@/components/home/NameForm'
 import { VoteStartBanner } from '@/components/room/VoteStartBanner'
-import { Avatar } from '@/components/ui/Avatar'
-import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import Link from 'next/link'
 import type { CardValue } from '@pokaface/shared'
@@ -34,8 +33,6 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
   )
 
   const [selectedCard, setSelectedCard] = useState<CardValue | null>(null)
-  const [renaming, setRenaming] = useState(false)
-  const [newName, setNewName] = useState('')
   const [storyTitleInput, setStoryTitleInput] = useState<string | null>(null)
   const previousRoundIdRef = useRef<string | null>(null)
   const displayTitle = state.isModerator && storyTitleInput !== null
@@ -161,31 +158,14 @@ export default function RoomPage({ params }: { params: { roomId: string } }) {
     <div className="min-h-screen bg-surface p-4 md:p-8">
       <VoteStartBanner phase={state.room.phase} roundId={state.room.roundId} />
       <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-2">
-            {renaming ? (
-              <form
-                onSubmit={e => { e.preventDefault(); if (newName.trim()) { setName(newName.trim()); setRenaming(false) } }}
-                className="flex items-center gap-2"
-              >
-                <Input
-                  value={newName}
-                  onChange={setNewName}
-                  placeholder="Your name"
-                  maxLength={50}
-                  className="w-36"
-                />
-                <Button type="submit" size="sm">Save</Button>
-              </form>
-            ) : (
-              <button onClick={() => { setNewName(identity.name); setRenaming(true) }} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-                <Avatar seed={identity.name} size={32} />
-                <span className="text-sm font-medium text-white">{identity.name}</span>
-                <span className="text-[10px] text-muted hover:text-white transition-colors">(change)</span>
-              </button>
-            )}
-          </div>
-          <div className="flex items-center gap-4">
+        <div className="flex flex-col gap-4 mb-8 lg:flex-row lg:items-center lg:justify-between">
+          <Link href="/" className="self-start">
+            <Button variant="secondary" size="sm">
+              Home
+            </Button>
+          </Link>
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <UserIdentityControl name={identity.name} onRename={setName} />
             <ThemeToggle />
             <ConnectionBadge connected={connected} reconnecting={reconnecting} />
             <span className="text-sm text-muted">Room ID: <code className="text-white">{params.roomId}</code></span>

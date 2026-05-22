@@ -39,3 +39,34 @@ export interface UserIdentity {
   name: string
   participantToken: string
 }
+
+export type RetrospectiveColumn = 'loved' | 'learned' | 'lacked' | 'longed' | 'kudos'
+
+export interface RetrospectiveParticipantPublic {
+  participantId: string
+  name: string
+  isConnected: boolean
+  isModerator: boolean
+}
+
+export interface RetrospectiveCardPublic {
+  cardId: string
+  column: RetrospectiveColumn
+  body: string
+  authorName: string | null
+  showAuthor: boolean
+  likeCount: number
+  likedByMe: boolean
+  canEdit: boolean
+  canDelete: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface RetrospectiveState {
+  retroId: string
+  title: string
+  participants: RetrospectiveParticipantPublic[]
+  cards: RetrospectiveCardPublic[]
+  createdAt: string
+}

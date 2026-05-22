@@ -1,0 +1,89 @@
+'use client'
+
+import { useCallback, useEffect, useState } from 'react'
+import { EVENTS } from '@pokaface/shared'
+import type { RetrospectiveColumn, RetrospectiveState, UserIdentity } from '@pokaface/shared'
+import type { Socket } from 'socket.io-client'
+
+interface UseRetrospectiveState {
+  retrospective: RetrospectiveState | null
+  isModerator: boolean
+  error: string | null
+  connecting: boolean
+}
+
+const EMPTY_STATE: UseRetrospectiveState = {
+  retrospective: null,
+  isModerator: false,
+  error: null,
+  connecting: true,
+}
+
+export function useRetrospective(retroId: string | null, identity: UserIdentity, socket: Socket | null, connected: boolean) {
+  const [state, setState] = useState<UseRetrospectiveState>(EMPTY_STATE)
+
+  const applyState = useCallback((retrospective: RetrospectiveState) => {
+    const me = retrospective.participants.find(p => p.participantId === identity.participantToken)
+    setState(prev => ({
+      ...prev,
+      retrospective,
+      isModerator: me?.isModerator ?? false,
+      error: null,
+      connecting: false,
+    }))
+  }, [identity.participantToken])
+
+  const joinRetrospective = useCallback(() => {
+    if (!socket || !retroId || !identity.participantToken || !identity.name) return
+    socket.emit(EVENTS.RETRO_JOIN, {
+      retroId,
+      name: identity.name,
+      participantToken: identity.participantToken,
+    })
+  }, [socket, retroId, identity])
+
+  const addCard = useCallback((column: RetrospectiveColumn, body: string, showAuthor: boolean) => {
+    if (!socket || !retroId) return
+    socket.emit(EVENTS.RETRO_CARD_ADD, { retroId, column, body, showAuthor })
+  }, [socket, retroId])
+
+  const editCard = useCallback((cardId: string, body: string, showAuthor: boolean) => {
+    if (!socket || !retroId) return
+    socket.emit(EVENTS.RETRO_CARD_EDIT, { retroId, cardId, body, showAuthor })
+  }, [socket, retroId])
+
+  const deleteCard = useCallback((cardId: string) => {
+    if (!socket || !retroId) return
+    socket.emit(EVENTS.RETRO_CARD_DELETE, { retroId, cardId })
+  }, [socket, retroId])
+
+  const toggleLike = useCallback((cardId: string) => {
+    if (!socket || !retroId) return
+    socket.emit(EVENTS.RETRO_CARD_LIKE_TOGGLE, { retroId, cardId })
+  }, [socket, retroId])
+
+  useEffect(() => {
+    if (!socket) return
+
+    const handleState = (payload: { retrospective: RetrospectiveState }) => applyState(payload.retrospective)
+    const handleError = (payload: { code: string; message: string }) => {
+      setState(prev => ({ ...prev, error: payload.message, connecting: false }))
+    }
+
+    socket.on(EVENTS.RETRO_STATE, handleState)
+    socket.on(EVENTS.RETRO_UPDATED, handleState)
+    socket.on(EVENTS.ROOM_ERROR, handleError)
+
+    if (connected && retroId && identity.participantToken && identity.name) {
+      joinRetrospective()
+    }
+
+    return () => {
+      socket.off(EVENTS.RETRO_STATE, handleState)
+      socket.off(EVENTS.RETRO_UPDATED, handleState)
+      socket.off(EVENTS.ROOM_ERROR, handleError)
+    }
+  }, [socket, connected, retroId, identity, joinRetrospective, applyState])
+
+  return { state, addCard, editCard, deleteCard, toggleLike }
+}

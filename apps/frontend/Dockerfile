@@ -17,6 +17,8 @@ RUN npm install --workspace=packages/shared --workspace=apps/frontend && \
     npm run build --workspace=packages/shared
 
 ENV NODE_ENV=production
+ARG NEXT_PUBLIC_BACKEND_URL=https://api.pokaface.win
+ENV NEXT_PUBLIC_BACKEND_URL=$NEXT_PUBLIC_BACKEND_URL
 RUN npm run build --workspace=apps/frontend
 
 FROM node:20-alpine AS runner
