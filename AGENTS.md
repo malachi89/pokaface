@@ -44,5 +44,5 @@ Do not start local app servers in this workspace (`npm run dev`, `npm run start`
 - `docker-compose.yml`: Production profile. Both containers on `internal` bridge network. Backend exposes `3001:3001`, data volume `./data:/app/data`, `FRONTEND_ORIGIN=https://www.pokaface.win`, and `ALLOWED_ORIGINS` includes `https://pokaface.win`, `https://www.pokaface.win`, `http://158.101.1.222:3000`, and `http://localhost:3000`. Frontend has `NEXT_PUBLIC_BACKEND_URL=https://api.pokaface.win`.
 - `docker-compose.local.yml`: Local Docker override. Backend uses `FRONTEND_ORIGIN=http://localhost:3000` and `ALLOWED_ORIGINS=http://localhost:3000`; frontend uses `NEXT_PUBLIC_BACKEND_URL=http://localhost:3001`. Run with `docker compose -f docker-compose.yml -f docker-compose.local.yml up --build`.
 - **Nginx on host** (not in Docker): production domain routing is `https://www.pokaface.win` → frontend:3000 and `https://api.pokaface.win` → backend:3001 for `/socket.io/` and `/api`. Direct `localhost:3001` from browser is only for local development.
-- Deploy: `git pull && docker-compose up -d --build`
+- Deploy from prebuilt `dev` images: `git pull && docker-compose pull && docker-compose up -d --no-build`
 - Room cleanup: inactive > `ROOM_TTL_DAYS` deleted at startup and every 24 h.

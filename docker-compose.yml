@@ -1,5 +1,6 @@
 services:
   backend:
+    image: ghcr.io/malachi89/pokaface-backend:dev
     build:
       context: .
       dockerfile: apps/backend/Dockerfile
@@ -25,6 +26,7 @@ services:
       retries: 3
 
   frontend:
+    image: ghcr.io/malachi89/pokaface-frontend:dev
     build:
       context: .
       dockerfile: apps/frontend/Dockerfile
