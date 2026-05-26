@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { getBackendUrl } from '@/lib/backendUrl'
 
 interface Stats {
   voting: {
@@ -19,7 +20,7 @@ interface Stats {
   }
 }
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? (process.env.NODE_ENV === 'production' ? 'https://api.pokaface.win' : 'http://localhost:3001')
+const BACKEND_URL = getBackendUrl()
 
 export default function AdminPage() {
   const [stats, setStats] = useState<Stats | null>(null)

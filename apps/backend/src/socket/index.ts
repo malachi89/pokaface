@@ -1,6 +1,6 @@
 import type { Server as HttpServer } from 'http'
 import { Server } from 'socket.io'
-import { config } from '../config'
+import { config, corsOriginCheck } from '../config'
 import { registerRoomHandlers } from './handlers/room'
 import { registerVotingHandlers } from './handlers/voting'
 import { registerModerationHandlers } from './handlers/moderation'
@@ -9,7 +9,7 @@ import { registerRetrospectiveHandlers } from './handlers/retrospective'
 export function createSocketServer(httpServer: HttpServer): Server {
   const io = new Server(httpServer, {
     cors: {
-      origin: config.allowedOrigins,
+      origin: corsOriginCheck,
       methods: ['GET', 'POST'],
       credentials: true,
     },

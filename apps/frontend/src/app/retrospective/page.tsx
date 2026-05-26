@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { EVENTS } from '@pokaface/shared'
 import type { RetrospectiveState } from '@pokaface/shared'
 import { useIdentity } from '@/hooks/useIdentity'
+import { getBackendUrl } from '@/lib/backendUrl'
 import { useSocket } from '@/hooks/useSocket'
 import { NameForm } from '@/components/home/NameForm'
 import { ThemeToggle } from '@/components/ThemeToggle'
@@ -12,7 +13,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Avatar } from '@/components/ui/Avatar'
 
-const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL ?? (process.env.NODE_ENV === 'production' ? 'https://api.pokaface.win' : 'http://localhost:3001')
+const backendUrl = getBackendUrl()
 
 export default function RetrospectiveLobbyPage() {
   const router = useRouter()

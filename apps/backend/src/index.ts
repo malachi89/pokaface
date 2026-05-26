@@ -1,7 +1,7 @@
 import http from 'http'
 import express from 'express'
 import cors from 'cors'
-import { config } from './config'
+import { config, corsOriginCheck } from './config'
 import { runMigrations, resetConnections } from './db/schema'
 import { cleanupOldRooms } from './db/queries'
 import { cleanupOldEvents } from './db/events'
@@ -18,7 +18,7 @@ async function start() {
 
     const app = express()
 
-    app.use(cors({ origin: config.allowedOrigins, credentials: true }))
+    app.use(cors({ origin: corsOriginCheck, credentials: true }))
     app.use(express.json())
     app.use('/api', router)
 

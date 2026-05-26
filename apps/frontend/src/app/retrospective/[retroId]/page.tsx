@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import type { RetrospectiveCardPublic, RetrospectiveColumn } from '@pokaface/shared'
 import { useIdentity } from '@/hooks/useIdentity'
 import { useRetrospective } from '@/hooks/useRetrospective'
+import { getBackendUrl } from '@/lib/backendUrl'
 import { useSocket } from '@/hooks/useSocket'
 import { NameForm } from '@/components/home/NameForm'
 import { ThemeToggle } from '@/components/ThemeToggle'
@@ -14,7 +15,7 @@ import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
 import { ConnectionBadge } from '@/components/room/ConnectionBadge'
 
-const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL ?? (process.env.NODE_ENV === 'production' ? 'https://api.pokaface.win' : 'http://localhost:3001')
+const backendUrl = getBackendUrl()
 
 const COLUMNS: Array<{
   key: RetrospectiveColumn

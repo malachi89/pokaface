@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
+import { getBackendUrl } from '@/lib/backendUrl'
 import { useIdentity } from '@/hooks/useIdentity'
 import { useSocket } from '@/hooks/useSocket'
 import { useRoom } from '@/hooks/useRoom'
@@ -22,8 +23,7 @@ import type { CardValue } from '@pokaface/shared'
 export default function RoomPage({ params }: { params: { roomId: string } }) {
   const router = useRouter()
   const { identity, setName, synced } = useIdentity()
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL ?? (process.env.NODE_ENV === 'production' ? 'https://api.pokaface.win' : 'http://localhost:3001')
-  const { socket, connected, reconnecting } = useSocket(backendUrl)
+  const { socket, connected, reconnecting } = useSocket(getBackendUrl())
   const isCreating = params.roomId === 'new'
   const { state, submitVote, startVote, revealVotes, resetVotes, changeStory, kickParticipant } = useRoom(
     isCreating ? null : params.roomId,
