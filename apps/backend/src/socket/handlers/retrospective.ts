@@ -9,6 +9,7 @@ import type {
   DeleteRetrospectiveCardPayload,
   EditRetrospectiveCardPayload,
   JoinRetrospectivePayload,
+  LinkRetrospectiveActionItemPayload,
   PauseRetrospectiveTimerPayload,
   ResetRetrospectiveTimerPayload,
   StartRetrospectiveTimerPayload,
@@ -30,6 +31,7 @@ import {
   getRetrospectiveParticipants,
   getRetrospectiveParticipantsBySocket,
   isRetrospectiveColumn,
+  linkRetrospectiveActionItem,
   pauseRetrospectiveTimer,
   resetRetrospectiveTimer,
   startRetrospectiveTimer,
@@ -246,6 +248,27 @@ export function registerRetrospectiveHandlers(io: Server, socket: Socket) {
       await emitRetrospectiveState(io, retroId)
     } catch (err) {
       socket.emit(EVENTS.ROOM_ERROR, { code: 'ERROR', message: 'Failed to add action item' })
+    }
+  })
+
+  socket.on(EVENTS.RETRO_ACTION_ITEM_LINK, async (payload: LinkRetrospectiveActionItemPayload) => {
+    try {
+      const { retroId, actionItemCardId, normalCardId } = payload
+      const participant = await getRetrospectiveParticipantBySocketAndRetro(socket.id, retroId)
+      if (!participant) {
+        socket.emit(EVENTS.ROOM_ERROR, { code: 'FORBIDDEN', message: 'Not in this retrospective' })
+        return
+      }
+
+      const linked = await linkRetrospectiveActionItem({ retroId, actionItemCardId, normalCardId })
+      if (!linked) {
+        socket.emit(EVENTS.ROOM_ERROR, { code: 'INVALID_PAYLOAD', message: 'Action item must be dropped on an existing retro card' })
+        return
+      }
+
+      await emitRetrospectiveState(io, retroId)
+    } catch (err) {
+      socket.emit(EVENTS.ROOM_ERROR, { code: 'ERROR', message: 'Failed to link action item' })
     }
   })
 

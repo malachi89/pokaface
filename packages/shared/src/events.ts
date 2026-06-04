@@ -38,6 +38,7 @@ export const EVENTS = {
   RETRO_CARD_DELETE: 'retro:card:delete',
   RETRO_CARD_LIKE_TOGGLE: 'retro:card:like:toggle',
   RETRO_ACTION_ITEM_ADD: 'retro:action-item:add',
+  RETRO_ACTION_ITEM_LINK: 'retro:action-item:link',
   RETRO_ACTION_ITEM_STATUS_TOGGLE: 'retro:action-item:status:toggle',
   RETRO_TIMER_UPDATE: 'retro:timer:update',
   RETRO_TIMER_START: 'retro:timer:start',
@@ -152,6 +153,12 @@ export interface AddRetrospectiveActionItemPayload {
   showAuthor: boolean
   ownerName?: string | null
   linkedCardIds: string[]
+}
+
+export interface LinkRetrospectiveActionItemPayload {
+  retroId: string
+  actionItemCardId: string
+  normalCardId: string
 }
 
 export interface ToggleRetrospectiveActionItemStatusPayload {

@@ -339,6 +339,33 @@ export async function addRetrospectiveActionItem(params: {
   return true
 }
 
+export async function linkRetrospectiveActionItem(params: {
+  retroId: string
+  actionItemCardId: string
+  normalCardId: string
+}) {
+  const rows = await allAsync(
+    `SELECT card_id, kind
+      FROM retrospective_cards
+      WHERE retro_id = ?
+        AND card_id IN (?, ?)`,
+    [params.retroId, params.actionItemCardId, params.normalCardId],
+  )
+  const actionItem = rows.find(row => row.card_id === params.actionItemCardId)
+  const normalCard = rows.find(row => row.card_id === params.normalCardId)
+
+  if (!actionItem || !normalCard || normalizeCardKind(actionItem.kind) !== 'action_item' || normalizeCardKind(normalCard.kind) !== 'normal') {
+    return false
+  }
+
+  await runAsync(
+    `INSERT OR IGNORE INTO retrospective_card_links (action_item_card_id, normal_card_id) VALUES (?, ?)`,
+    [params.actionItemCardId, params.normalCardId],
+  )
+  await touchRetrospective(params.retroId)
+  return true
+}
+
 export async function editRetrospectiveCard(cardId: string, retroId: string, body: string, showAuthor: boolean, ownerName?: string | null) {
   await runAsync(
     `UPDATE retrospective_cards

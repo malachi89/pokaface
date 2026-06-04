@@ -1,11 +1,13 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { type RefObject, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { toPng } from 'html-to-image'
 import type {
   RetrospectiveCardPublic,
   RetrospectiveColumn,
+  RetrospectiveState,
   RetrospectiveTimerState,
 } from '@pokaface/shared'
 import { useIdentity } from '@/hooks/useIdentity'
@@ -114,6 +116,89 @@ function CopyRetroLinkButton({ retroId }: { retroId: string }) {
     <Button onClick={handleCopy} variant={copied ? 'secondary' : 'primary'} size="sm">
       {copied ? 'Copied' : 'Copy Link'}
     </Button>
+  )
+}
+
+function sanitizeFileName(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48) || 'retroboard'
+}
+
+function formatExportDate(date: Date) {
+  return date.toISOString().slice(0, 10)
+}
+
+function formatExportTimestamp(date: Date) {
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(date)
+}
+
+function makeRetroEvidenceFileName(title: string, retroId: string, date: Date) {
+  return `retroboard-${sanitizeFileName(title)}-${retroId}-${formatExportDate(date)}.png`
+}
+
+function DownloadRetroEvidenceButton({
+  retroId,
+  title,
+  targetRef,
+  onPrepare,
+}: {
+  retroId: string
+  title: string
+  targetRef: RefObject<HTMLDivElement>
+  onPrepare: (date: Date) => void
+}) {
+  const [preparing, setPreparing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const handleDownload = async () => {
+    const target = targetRef.current
+    if (!target || preparing) return
+
+    setPreparing(true)
+    setError(null)
+
+    const exportedAt = new Date()
+    onPrepare(exportedAt)
+
+    try {
+      await new Promise<void>(resolve => {
+        window.requestAnimationFrame(() => {
+          window.requestAnimationFrame(() => resolve())
+        })
+      })
+
+      const dataUrl = await toPng(target, {
+        cacheBust: true,
+        pixelRatio: 2,
+        backgroundColor: '#f8fafc',
+        width: target.scrollWidth,
+        height: target.scrollHeight,
+      })
+      const link = document.createElement('a')
+      link.href = dataUrl
+      link.download = makeRetroEvidenceFileName(title, retroId, exportedAt)
+      link.click()
+    } catch {
+      setError('Could not create image')
+    } finally {
+      setPreparing(false)
+    }
+  }
+
+  return (
+      <div className="flex flex-col items-start gap-1">
+      <Button onClick={handleDownload} variant="secondary" size="sm" disabled={preparing}>
+        {preparing ? 'Preparing...' : 'Download Retro'}
+      </Button>
+      {error && <span className="text-xs text-red-500 dark:text-red-300">{error}</span>}
+    </div>
   )
 }
 
@@ -257,19 +342,19 @@ function RetroTimerPanel({
   }
 
   return (
-    <section className="inline-flex h-9 max-w-full items-center gap-1 rounded-md border border-slate-300/80 bg-white/75 px-2 shadow-sm backdrop-blur-sm dark:border-white/10 dark:bg-white/10">
-      <div className="min-w-[3.25rem] px-1 text-center font-mono text-sm font-semibold tabular-nums text-slate-900 dark:text-white">
+    <section className="inline-flex h-11 max-w-full items-center gap-1.5 rounded-md border border-slate-300/80 bg-white/75 px-2.5 shadow-sm backdrop-blur-sm dark:border-white/10 dark:bg-white/10">
+      <div className="min-w-[4.25rem] px-1.5 text-center font-mono text-base font-semibold tabular-nums text-slate-900 dark:text-white">
         {formatTimer(displayedRemainingMs)}
       </div>
       {hasExpired && (
-        <span className="whitespace-nowrap rounded-md bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-red-700 dark:bg-red-950/60 dark:text-red-300">
+        <span className="whitespace-nowrap rounded-md bg-red-100 px-2 py-0.5 text-[11px] font-semibold leading-none text-red-700 dark:bg-red-950/60 dark:text-red-300">
           Time&apos;s up
         </span>
       )}
       {isModerator && (
         <>
-          <span className="mx-0.5 h-4 w-px bg-slate-300 dark:bg-white/15" />
-          <div className="flex h-7 w-6 shrink-0 flex-col overflow-hidden rounded-md border border-slate-300/70 dark:border-white/15">
+          <span className="mx-0.5 h-5 w-px bg-slate-300 dark:bg-white/15" />
+          <div className="flex h-8 w-7 shrink-0 flex-col overflow-hidden rounded-md border border-slate-300/70 dark:border-white/15">
             <button
               type="button"
               onClick={increaseTimer}
@@ -278,7 +363,7 @@ function RetroTimerPanel({
               title="+30 seconds"
               className="flex h-1/2 items-center justify-center text-slate-500 transition-colors hover:bg-slate-200/70 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
             >
-              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M6 15l6-6 6 6" />
               </svg>
             </button>
@@ -290,7 +375,7 @@ function RetroTimerPanel({
               title="-30 seconds"
               className="flex h-1/2 items-center justify-center border-t border-slate-300/70 text-slate-500 transition-colors hover:bg-slate-200/70 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent dark:border-white/15 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
             >
-              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M6 9l6 6 6-6" />
               </svg>
             </button>
@@ -301,14 +386,14 @@ function RetroTimerPanel({
             disabled={hasExpired}
             aria-label={isRunning ? 'Pause timer' : 'Start timer'}
             title={isRunning ? 'Pause timer' : 'Start timer'}
-            className={iconButtonClass}
+            className={`${iconButtonClass} h-8 w-8`}
           >
             {isRunning ? (
-              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
+              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4.5 w-4.5" fill="currentColor">
                 <path d="M7 5h3v14H7zm7 0h3v14h-3z" />
               </svg>
             ) : (
-              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
+              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4.5 w-4.5" fill="currentColor">
                 <path d="M8 5v14l11-7z" />
               </svg>
             )}
@@ -319,9 +404,9 @@ function RetroTimerPanel({
             disabled={isRunning}
             aria-label="Reset timer"
             title="Reset timer"
-            className={iconButtonClass}
+            className={`${iconButtonClass} h-8 w-8`}
           >
-            <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4.5 w-4.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M3 12a9 9 0 1 0 3-6.7" />
               <path d="M3 3v6h6" />
             </svg>
@@ -421,89 +506,83 @@ function CardComposer({
 }
 
 function ActionItemComposer({
-  selectedCards,
+  normalCardId,
   onAdd,
-  onClear,
+  onClose,
 }: {
-  selectedCards: RetrospectiveCardPublic[]
+  normalCardId: string
   onAdd: (body: string, showAuthor: boolean, ownerName: string | null, linkedCardIds: string[]) => void
-  onClear: () => void
+  onClose: () => void
 }) {
   const [body, setBody] = useState('')
-  const [ownerName, setOwnerName] = useState('')
   const [showAuthor, setShowAuthor] = useState(false)
 
   const resetForm = () => {
     setBody('')
-    setOwnerName('')
     setShowAuthor(false)
   }
 
+  const handleClose = () => {
+    resetForm()
+    onClose()
+  }
+
   const handleSubmit = () => {
-    if (!body.trim() || selectedCards.length === 0) return
+    if (!body.trim()) return
     onAdd(
       body.trim(),
       showAuthor,
-      ownerName.trim() || null,
-      selectedCards.map(card => card.cardId),
+      null,
+      [normalCardId],
     )
     resetForm()
-    onClear()
+    onClose()
   }
 
   return (
-    <section className="rounded border border-slate-300 bg-white/85 p-4 shadow-sm dark:border-white/10 dark:bg-white/10">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Action item</h2>
-          <p className="text-xs text-slate-600 dark:text-slate-300">
-            Linked to {selectedCards.length} selected card{selectedCards.length === 1 ? '' : 's'}
-          </p>
-        </div>
-        <Button type="button" onClick={onClear} variant="secondary" size="sm">
-          Clear
-        </Button>
+    <form onSubmit={e => { e.preventDefault(); handleSubmit() }} className="space-y-3 rounded border border-red-300/80 bg-red-100 p-3 shadow-sm">
+      <div className="flex items-center justify-between gap-2">
+        <span className="inline-flex items-center rounded-full bg-red-600 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+          Action item
+        </span>
+        <button
+          type="button"
+          onClick={handleClose}
+          aria-label="Collapse action item composer"
+          className="inline-flex h-6 w-6 items-center justify-center rounded text-red-800 transition-colors hover:bg-red-200"
+          title="Close"
+        >
+          <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 rotate-45" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+        </button>
       </div>
-      <form onSubmit={e => { e.preventDefault(); handleSubmit() }} className="grid gap-3 lg:grid-cols-[1fr_14rem_auto] lg:items-start">
-        <textarea
-          value={body}
-          onChange={e => setBody(e.target.value)}
-          placeholder="Action item"
-          maxLength={500}
-          className="min-h-20 w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 caret-slate-900 placeholder:text-slate-500 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-brand dark:border-slate-300 dark:bg-white dark:text-slate-900"
-          style={{ colorScheme: 'light', backgroundColor: '#ffffff', color: '#0f172a' }}
+      <textarea
+        value={body}
+        onChange={e => setBody(e.target.value)}
+        placeholder="Action item"
+        maxLength={500}
+        className="min-h-20 w-full resize-y rounded border border-red-300 bg-white px-3 py-2 text-sm text-slate-900 caret-red-700 placeholder:text-slate-500 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-red-500"
+        style={{ colorScheme: 'light', backgroundColor: '#ffffff', color: '#0f172a' }}
+      />
+      <label className="flex items-center gap-2 text-sm text-slate-800">
+        <input
+          type="checkbox"
+          checked={showAuthor}
+          onChange={e => setShowAuthor(e.target.checked)}
+          className="h-4 w-4 rounded border-slate-300 bg-white accent-brand"
         />
-        <div className="space-y-2">
-          <input
-            value={ownerName}
-            onChange={e => setOwnerName(e.target.value)}
-            placeholder="Owner"
-            maxLength={80}
-            className="h-10 w-full rounded border border-slate-300 bg-white px-3 text-sm text-slate-900 caret-slate-900 placeholder:text-slate-500 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-brand dark:border-slate-300 dark:bg-white dark:text-slate-900"
-            style={{ colorScheme: 'light', backgroundColor: '#ffffff', color: '#0f172a' }}
-          />
-          <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
-            <input
-              type="checkbox"
-              checked={showAuthor}
-              onChange={e => setShowAuthor(e.target.checked)}
-              className="h-4 w-4 rounded border-slate-300 bg-white accent-brand"
-            />
-            Show my name
-          </label>
-        </div>
-        <Button type="submit" disabled={!body.trim()} size="sm" className="min-h-10">
+        Show my name
+      </label>
+      <div className="flex gap-2">
+        <Button type="submit" disabled={!body.trim()} size="sm" className="flex-1 shadow-sm">
           Add Action
         </Button>
-      </form>
-      <div className="mt-3 flex flex-wrap gap-2">
-        {selectedCards.map(card => (
-          <span key={card.cardId} className="max-w-[16rem] truncate rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-700 dark:bg-white/10 dark:text-slate-200">
-            {card.body}
-          </span>
-        ))}
+        <Button type="button" onClick={handleClose} variant="secondary" size="sm">
+          Cancel
+        </Button>
       </div>
-    </section>
+    </form>
   )
 }
 
@@ -511,42 +590,44 @@ function ActionItemCard({
   card,
   onEdit,
   onDelete,
-  onToggleStatus,
+  onDragStart,
+  onDragEnd,
 }: {
   card: RetrospectiveCardPublic
   onEdit: (cardId: string, body: string, showAuthor: boolean, ownerName?: string | null) => void
   onDelete: (cardId: string) => void
-  onToggleStatus: (cardId: string) => void
+  onDragStart: (cardId: string) => void
+  onDragEnd: () => void
 }) {
   const [editing, setEditing] = useState(false)
   const [body, setBody] = useState(card.body)
-  const [ownerName, setOwnerName] = useState(card.ownerName ?? '')
   const [showAuthor, setShowAuthor] = useState(card.showAuthor)
-  const isDone = card.actionStatus === 'done'
 
   const save = () => {
     if (!body.trim()) return
-    onEdit(card.cardId, body.trim(), showAuthor, ownerName.trim() || null)
+    onEdit(card.cardId, body.trim(), showAuthor, null)
     setEditing(false)
   }
 
   return (
-    <article className={`rounded border border-slate-300 bg-white/80 p-3 shadow-sm ${isDone ? 'opacity-75' : ''}`}>
+    <article
+      draggable={!editing}
+      onDragStart={event => {
+        event.dataTransfer.effectAllowed = 'copy'
+        event.dataTransfer.setData('text/plain', card.cardId)
+        onDragStart(card.cardId)
+      }}
+      onDragEnd={onDragEnd}
+      className="cursor-grab rounded border border-red-300/80 bg-red-100 p-3 shadow-sm active:cursor-grabbing"
+      title="Drag to copy this action item onto another card"
+    >
       {editing ? (
         <form onSubmit={e => { e.preventDefault(); save() }} className="space-y-3">
           <textarea
             value={body}
             onChange={e => setBody(e.target.value)}
             maxLength={500}
-            className="min-h-20 w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 caret-slate-900 focus:outline-none focus:ring-2 focus:ring-brand dark:border-slate-300 dark:bg-white dark:text-slate-900"
-            style={{ colorScheme: 'light', backgroundColor: '#ffffff', color: '#0f172a' }}
-          />
-          <input
-            value={ownerName}
-            onChange={e => setOwnerName(e.target.value)}
-            placeholder="Owner"
-            maxLength={80}
-            className="h-9 w-full rounded border border-slate-300 bg-white px-3 text-sm text-slate-900 caret-slate-900 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-brand dark:border-slate-300 dark:bg-white dark:text-slate-900"
+            className="min-h-20 w-full rounded border border-red-300 bg-white px-3 py-2 text-sm text-slate-900 caret-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 dark:border-red-300 dark:bg-white dark:text-slate-900"
             style={{ colorScheme: 'light', backgroundColor: '#ffffff', color: '#0f172a' }}
           />
           <label className="flex items-center gap-2 text-sm text-slate-800">
@@ -560,45 +641,21 @@ function ActionItemCard({
           </label>
           <div className="flex gap-2">
             <Button type="submit" size="sm" disabled={!body.trim()}>Save</Button>
-            <Button onClick={() => { setEditing(false); setBody(card.body); setOwnerName(card.ownerName ?? ''); setShowAuthor(card.showAuthor) }} variant="secondary" size="sm">
+            <Button onClick={() => { setEditing(false); setBody(card.body); setShowAuthor(card.showAuthor) }} variant="secondary" size="sm">
               Cancel
             </Button>
           </div>
         </form>
       ) : (
         <div className="space-y-2">
-          <div className="flex items-start justify-between gap-2">
-            <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${isDone ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-              {isDone ? 'Done' : 'Open'}
+          <div className="flex items-center justify-between gap-2">
+            <span className="inline-flex items-center rounded-full bg-red-600 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+              Action item
             </span>
-            <button
-              type="button"
-              onClick={() => onToggleStatus(card.cardId)}
-              className="text-xs font-medium text-slate-700 hover:text-slate-950"
-            >
-              {isDone ? 'Reopen' : 'Mark Done'}
-            </button>
           </div>
-          <p className={`whitespace-pre-wrap break-words text-sm text-slate-900 ${isDone ? 'line-through decoration-slate-500/70' : ''}`}>
+          <p className="whitespace-pre-wrap break-words text-sm text-slate-900">
             {card.body}
           </p>
-          {card.ownerName && (
-            <p className="text-xs text-slate-700">Owner: {card.ownerName}</p>
-          )}
-          {card.linkedCards.length > 1 && (
-            <div className="space-y-1">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
-                Linked to {card.linkedCards.length} cards
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {card.linkedCards.map(linkedCard => (
-                  <span key={linkedCard.cardId} className="max-w-[10rem] truncate rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-700">
-                    {linkedCard.body}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
           <div className="flex items-center justify-end gap-2">
             {card.canEdit && (
               <button type="button" onClick={() => setEditing(true)} className="text-xs text-slate-800 hover:opacity-80 transition-opacity">
@@ -625,27 +682,41 @@ function ActionItemCard({
 function RetroCard({
   card,
   colorClassName,
-  selected,
   actionItems,
+  draggedActionItemId,
+  onAddActionItem,
   onEdit,
   onDelete,
   onToggleLike,
-  onToggleSelect,
-  onToggleActionItemStatus,
+  onDragActionItemStart,
+  onDragActionItemEnd,
+  onLinkActionItem,
 }: {
   card: RetrospectiveCardPublic
   colorClassName: string
-  selected: boolean
   actionItems: RetrospectiveCardPublic[]
+  draggedActionItemId: string | null
+  onAddActionItem: (body: string, showAuthor: boolean, ownerName: string | null, linkedCardIds: string[]) => void
   onEdit: (cardId: string, body: string, showAuthor: boolean, ownerName?: string | null) => void
   onDelete: (cardId: string) => void
   onToggleLike: (cardId: string) => void
-  onToggleSelect: (cardId: string) => void
-  onToggleActionItemStatus: (cardId: string) => void
+  onDragActionItemStart: (cardId: string) => void
+  onDragActionItemEnd: () => void
+  onLinkActionItem: (actionItemCardId: string, normalCardId: string) => void
 }) {
   const [editing, setEditing] = useState(false)
   const [body, setBody] = useState(card.body)
   const [showAuthor, setShowAuthor] = useState(card.showAuthor)
+  const [dropActive, setDropActive] = useState(false)
+  const [actionItemComposerOpen, setActionItemComposerOpen] = useState(false)
+  const alreadyLinkedDraggedItem = draggedActionItemId
+    ? actionItems.some(actionItem => actionItem.cardId === draggedActionItemId)
+    : false
+  const canDropActionItem = Boolean(draggedActionItemId && !alreadyLinkedDraggedItem)
+
+  useEffect(() => {
+    if (!draggedActionItemId) setDropActive(false)
+  }, [draggedActionItemId])
 
   const save = () => {
     if (!body.trim()) return
@@ -654,7 +725,27 @@ function RetroCard({
   }
 
   return (
-    <article className={`rounded border p-3 space-y-3 ${selected ? 'ring-2 ring-brand ring-offset-2 ring-offset-transparent' : ''} ${colorClassName}`}>
+    <article
+      onDragEnter={() => {
+        if (draggedActionItemId) setDropActive(true)
+      }}
+      onDragOver={event => {
+        if (!draggedActionItemId) return
+        event.preventDefault()
+        event.dataTransfer.dropEffect = canDropActionItem ? 'copy' : 'none'
+      }}
+      onDragLeave={() => setDropActive(false)}
+      onDrop={event => {
+        event.preventDefault()
+        setDropActive(false)
+        if (!draggedActionItemId) return
+        const actionItemId = event.dataTransfer.getData('text/plain') || draggedActionItemId
+        if (actionItemId && !actionItems.some(actionItem => actionItem.cardId === actionItemId)) {
+          onLinkActionItem(actionItemId, card.cardId)
+        }
+      }}
+      className={`rounded border p-3 space-y-3 transition-shadow ${dropActive && canDropActionItem ? 'ring-2 ring-brand ring-offset-2 ring-offset-transparent' : ''} ${colorClassName}`}
+    >
       {editing ? (
         <form onSubmit={e => { e.preventDefault(); save() }} className="space-y-3">
           <textarea
@@ -682,49 +773,56 @@ function RetroCard({
         </form>
       ) : (
         <>
-          <div className="flex items-start justify-between gap-2">
-            <label className="inline-flex items-center gap-2 text-xs font-medium text-slate-700">
-              <input
-                type="checkbox"
-                checked={selected}
-                onChange={() => onToggleSelect(card.cardId)}
-                className="h-4 w-4 rounded border-slate-300 bg-white accent-brand"
-              />
-              Select
-            </label>
-          </div>
           <p className="text-sm text-slate-900 whitespace-pre-wrap break-words">{card.body}</p>
           <div className="space-y-2">
-            <div className="flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => onToggleLike(card.cardId)}
-                aria-label={card.likedByMe ? `Remove appreciation from card. ${card.likeCount} total.` : `Appreciate card. ${card.likeCount} total.`}
+          <div className="flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => onToggleLike(card.cardId)}
+              aria-label={card.likedByMe ? `Remove appreciation from card. ${card.likeCount} total.` : `Appreciate card. ${card.likeCount} total.`}
                 className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors ${card.likedByMe ? 'border-brand bg-brand text-white' : 'border-slate-400/80 bg-white/70 text-slate-800 hover:bg-white'}`}
                 title={card.likedByMe ? 'Unlike' : 'Like'}
               >
                 <AppreciationIcon filled={card.likedByMe} />
-                <span className={`rounded-full px-1.5 py-0.5 text-[11px] leading-none ${card.likedByMe ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'}`}>
-                  {card.likeCount}
-                </span>
+              <span className={`rounded-full px-1.5 py-0.5 text-[11px] leading-none ${card.likedByMe ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'}`}>
+                {card.likeCount}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActionItemComposerOpen(open => !open)}
+              aria-label="Add action item"
+              title="Add action item"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-red-400/80 bg-red-100 text-red-700 transition-colors hover:bg-red-200 hover:text-red-900"
+            >
+              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+            </button>
+            {card.canEdit && (
+              <button type="button" onClick={() => setEditing(true)} className="text-xs text-slate-800 hover:opacity-80 transition-opacity">
+                Edit
               </button>
-              {card.canEdit && (
-                <button type="button" onClick={() => setEditing(true)} className="text-xs text-slate-800 hover:opacity-80 transition-opacity">
-                  Edit
-                </button>
-              )}
+            )}
               {card.canDelete && (
                 <button type="button" onClick={() => onDelete(card.cardId)} className="text-xs text-red-500 dark:text-red-700 hover:text-red-300 dark:hover:text-red-800 transition-colors">
                   Delete
                 </button>
               )}
             </div>
-            {card.authorName && (
-              <div className="text-xs text-slate-700 break-words">
-                {card.authorName}
-              </div>
-            )}
-          </div>
+          {card.authorName && (
+            <div className="text-xs text-slate-700 break-words">
+              {card.authorName}
+            </div>
+          )}
+        </div>
+          {actionItemComposerOpen && (
+            <ActionItemComposer
+              normalCardId={card.cardId}
+              onAdd={onAddActionItem}
+              onClose={() => setActionItemComposerOpen(false)}
+            />
+          )}
           {actionItems.length > 0 && (
             <div className="space-y-2 border-t border-slate-400/30 pt-3">
               {actionItems.map(actionItem => (
@@ -733,7 +831,8 @@ function RetroCard({
                   card={actionItem}
                   onEdit={onEdit}
                   onDelete={onDelete}
-                  onToggleStatus={onToggleActionItemStatus}
+                  onDragStart={onDragActionItemStart}
+                  onDragEnd={onDragActionItemEnd}
                 />
               ))}
             </div>
@@ -744,22 +843,159 @@ function RetroCard({
   )
 }
 
+function EvidenceActionItemCard({ card }: { card: RetrospectiveCardPublic }) {
+  const isDone = card.actionStatus === 'done'
+
+  return (
+    <article className="space-y-1 rounded border border-red-300 bg-red-50 p-2.5">
+      <div className="flex items-center justify-between gap-2">
+        <span className="inline-flex rounded-full bg-red-600 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white">
+          Action item
+        </span>
+        {card.actionStatus && (
+          <span className={`rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${isDone ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+            {isDone ? 'Done' : 'Open'}
+          </span>
+        )}
+      </div>
+      <p className={`whitespace-pre-wrap break-words text-xs leading-5 text-slate-900 ${isDone ? 'line-through decoration-slate-500/70' : ''}`}>
+        {card.body}
+      </p>
+      {card.ownerName && (
+        <p className="text-[11px] text-slate-700">Owner: {card.ownerName}</p>
+      )}
+      {card.authorName && (
+        <p className="text-[11px] text-slate-600">Author: {card.authorName}</p>
+      )}
+    </article>
+  )
+}
+
+function EvidenceRetroCard({
+  card,
+  colorClassName,
+  actionItems,
+}: {
+  card: RetrospectiveCardPublic
+  colorClassName: string
+  actionItems: RetrospectiveCardPublic[]
+}) {
+  return (
+    <article className={`space-y-2 rounded border p-3 ${colorClassName}`}>
+      <p className="whitespace-pre-wrap break-words text-sm leading-6 text-slate-900">{card.body}</p>
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-700">
+        {card.authorName ? <span>Author: {card.authorName}</span> : <span />}
+        <span className="rounded-full bg-white/75 px-2 py-0.5 font-medium text-slate-800">
+          Likes: {card.likeCount}
+        </span>
+      </div>
+      {actionItems.length > 0 && (
+        <div className="space-y-2 border-t border-slate-400/30 pt-2">
+          {actionItems.map(actionItem => (
+            <EvidenceActionItemCard key={actionItem.cardId} card={actionItem} />
+          ))}
+        </div>
+      )}
+    </article>
+  )
+}
+
+function RetrospectiveEvidenceExport({
+  retrospective,
+  title,
+  exportedAt,
+  actionItemsByNormalCardId,
+}: {
+  retrospective: RetrospectiveState
+  title: string
+  exportedAt: Date
+  actionItemsByNormalCardId: Map<string, RetrospectiveCardPublic[]>
+}) {
+  const displayedRemainingMs = getDisplayedRemainingMs(retrospective.timer, exportedAt.getTime())
+  const timerStatus = displayedRemainingMs <= 0
+    ? "Time's up"
+    : retrospective.timer.status === 'running'
+      ? 'Running'
+      : 'Paused'
+
+  return (
+    <div className="w-[1600px] bg-slate-50 p-8 text-slate-900">
+      <header className="mb-6 flex items-start justify-between gap-8 border-b border-slate-300 pb-5">
+        <div className="min-w-0">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Retroboard evidence</p>
+          <h1 className="break-words text-4xl font-bold leading-tight text-slate-950">{title}</h1>
+          <p className="mt-2 text-sm text-slate-600">Retro ID: {retrospective.retroId}</p>
+        </div>
+        <div className="shrink-0 rounded border border-slate-300 bg-white px-4 py-3 text-right shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Exported</p>
+          <p className="mt-1 text-sm font-medium text-slate-900">{formatExportTimestamp(exportedAt)}</p>
+        </div>
+      </header>
+
+      <section className="mb-6 rounded border border-slate-300 bg-white p-4">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-600">Participants</h2>
+        <div className="flex flex-wrap gap-2">
+          {retrospective.participants.map(participant => (
+            <div key={participant.participantId} className="flex items-center gap-2 rounded-full border border-slate-300 bg-slate-50 px-3 py-1.5">
+              <span className={`h-2.5 w-2.5 rounded-full ${participant.isConnected ? 'bg-green-500' : 'bg-slate-300'}`} />
+              <span className="text-xs font-medium text-slate-900">{participant.name}</span>
+              {participant.isModerator && <span className="text-[10px] font-semibold uppercase tracking-wide text-brand">moderator</span>}
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <main className="grid grid-cols-5 gap-4">
+        {COLUMNS.map(column => {
+          const cards = retrospective.cards.filter(card => card.kind === 'normal' && card.column === column.key)
+
+          return (
+            <section key={column.key} className={`flex min-h-[520px] flex-col gap-3 rounded border p-4 ${column.className}`}>
+              <div className="min-h-24">
+                <h2 className="flex min-h-10 items-start gap-2 text-xl font-semibold text-slate-900">
+                  <span aria-hidden="true">{column.emoji}</span>
+                  {column.title}
+                </h2>
+                <p className="mt-0.5 text-sm leading-5 text-slate-700">{column.meaning}</p>
+              </div>
+              <div className="space-y-3">
+                {cards.length > 0 ? (
+                  cards.map(card => (
+                    <EvidenceRetroCard
+                      key={card.cardId}
+                      card={card}
+                      colorClassName={cardShade(card.cardId, column.cardShades)}
+                      actionItems={actionItemsByNormalCardId.get(card.cardId) ?? []}
+                    />
+                  ))
+                ) : (
+                  <div className="rounded border border-dashed border-slate-400/70 bg-white/45 px-3 py-6 text-center text-sm text-slate-600">
+                    No cards
+                  </div>
+                )}
+              </div>
+            </section>
+          )
+        })}
+      </main>
+    </div>
+  )
+}
+
 export default function RetrospectiveBoardPage({ params }: { params: { retroId: string } }) {
   const router = useRouter()
   const { identity, setName, synced } = useIdentity()
   const { socket, connected, reconnecting } = useSocket(backendUrl)
-  const { state, addCard, editCard, deleteCard, toggleLike, addActionItem, toggleActionItemStatus, updateTimer, startTimer, pauseTimer, resetTimer } = useRetrospective(
+  const { state, addCard, editCard, deleteCard, toggleLike, addActionItem, linkActionItem, updateTimer, startTimer, pauseTimer, resetTimer } = useRetrospective(
     params.retroId,
     identity,
     socket,
     connected,
   )
-  const [selectedCardIds, setSelectedCardIds] = useState<string[]>([])
+  const [draggedActionItemId, setDraggedActionItemId] = useState<string | null>(null)
+  const [exportedAt, setExportedAt] = useState(() => new Date())
+  const exportRef = useRef<HTMLDivElement>(null)
   const allCards = useMemo(() => state.retrospective?.cards ?? [], [state.retrospective?.cards])
-  const selectedCards = useMemo(() => {
-    const selectedIds = new Set(selectedCardIds)
-    return allCards.filter(card => card.kind === 'normal' && selectedIds.has(card.cardId))
-  }, [allCards, selectedCardIds])
   const actionItemsByNormalCardId = useMemo(() => {
     const actionItems = allCards.filter(card => card.kind === 'action_item')
     const actionMap = new Map<string, RetrospectiveCardPublic[]>()
@@ -774,21 +1010,6 @@ export default function RetrospectiveBoardPage({ params }: { params: { retroId: 
 
     return actionMap
   }, [allCards])
-
-  useEffect(() => {
-    const normalCardIds = new Set(allCards.filter(card => card.kind === 'normal').map(card => card.cardId))
-    setSelectedCardIds(current => current.filter(cardId => normalCardIds.has(cardId)))
-  }, [allCards])
-
-  const toggleSelectedCard = (cardId: string) => {
-    setSelectedCardIds(current => (
-      current.includes(cardId)
-        ? current.filter(selectedCardId => selectedCardId !== cardId)
-        : [...current, cardId]
-    ))
-  }
-
-  const clearSelectedCards = () => setSelectedCardIds([])
 
   if (synced && !identity.name) {
     return (
@@ -841,6 +1062,16 @@ export default function RetrospectiveBoardPage({ params }: { params: { retroId: 
   return (
     <div className="min-h-screen bg-surface p-4 md:p-8">
       <RetroTimeUpBanner timer={state.retrospective.timer} />
+      <div aria-hidden="true" className="pointer-events-none fixed left-[-12000px] top-0">
+        <div ref={exportRef}>
+          <RetrospectiveEvidenceExport
+            retrospective={state.retrospective}
+            title={title}
+            exportedAt={exportedAt}
+            actionItemsByNormalCardId={actionItemsByNormalCardId}
+          />
+        </div>
+      </div>
       <div className="max-w-7xl mx-auto space-y-6">
         <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-col items-start gap-4">
@@ -868,6 +1099,12 @@ export default function RetrospectiveBoardPage({ params }: { params: { retroId: 
             <ConnectionBadge connected={connected} reconnecting={reconnecting} />
             <Link href="/retrospective"><Button variant="secondary" size="sm">New Retro</Button></Link>
             <CopyRetroLinkButton retroId={params.retroId} />
+            <DownloadRetroEvidenceButton
+              retroId={params.retroId}
+              title={title}
+              targetRef={exportRef}
+              onPrepare={setExportedAt}
+            />
           </div>
         </header>
 
@@ -888,14 +1125,6 @@ export default function RetrospectiveBoardPage({ params }: { params: { retroId: 
           ))}
         </section>
 
-        {selectedCards.length > 0 && (
-          <ActionItemComposer
-            selectedCards={selectedCards}
-            onAdd={addActionItem}
-            onClear={clearSelectedCards}
-          />
-        )}
-
         <main className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
           {COLUMNS.map(column => {
             const cards = state.retrospective!.cards.filter(card => card.kind === 'normal' && card.column === column.key)
@@ -915,13 +1144,15 @@ export default function RetrospectiveBoardPage({ params }: { params: { retroId: 
                       key={card.cardId}
                       card={card}
                       colorClassName={cardShade(card.cardId, column.cardShades)}
-                      selected={selectedCardIds.includes(card.cardId)}
                       actionItems={actionItemsByNormalCardId.get(card.cardId) ?? []}
+                      draggedActionItemId={draggedActionItemId}
+                      onAddActionItem={addActionItem}
                       onEdit={editCard}
                       onDelete={deleteCard}
                       onToggleLike={toggleLike}
-                      onToggleSelect={toggleSelectedCard}
-                      onToggleActionItemStatus={toggleActionItemStatus}
+                      onDragActionItemStart={setDraggedActionItemId}
+                      onDragActionItemEnd={() => setDraggedActionItemId(null)}
+                      onLinkActionItem={linkActionItem}
                     />
                   ))}
                 </div>

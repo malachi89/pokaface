@@ -71,6 +71,11 @@ export function useRetrospective(retroId: string | null, identity: UserIdentity,
     socket.emit(EVENTS.RETRO_ACTION_ITEM_ADD, { retroId, body, showAuthor, ownerName, linkedCardIds })
   }, [socket, retroId])
 
+  const linkActionItem = useCallback((actionItemCardId: string, normalCardId: string) => {
+    if (!socket || !retroId) return
+    socket.emit(EVENTS.RETRO_ACTION_ITEM_LINK, { retroId, actionItemCardId, normalCardId })
+  }, [socket, retroId])
+
   const toggleActionItemStatus = useCallback((cardId: string) => {
     if (!socket || !retroId) return
     socket.emit(EVENTS.RETRO_ACTION_ITEM_STATUS_TOGGLE, { retroId, cardId })
@@ -126,6 +131,7 @@ export function useRetrospective(retroId: string | null, identity: UserIdentity,
     deleteCard,
     toggleLike,
     addActionItem,
+    linkActionItem,
     toggleActionItemStatus,
     updateTimer,
     startTimer,
