@@ -51,9 +51,9 @@ export function useRetrospective(retroId: string | null, identity: UserIdentity,
     socket.emit(EVENTS.RETRO_CARD_ADD, { retroId, column, body, showAuthor })
   }, [socket, retroId])
 
-  const editCard = useCallback((cardId: string, body: string, showAuthor: boolean) => {
+  const editCard = useCallback((cardId: string, body: string, showAuthor: boolean, ownerName?: string | null) => {
     if (!socket || !retroId) return
-    socket.emit(EVENTS.RETRO_CARD_EDIT, { retroId, cardId, body, showAuthor })
+    socket.emit(EVENTS.RETRO_CARD_EDIT, { retroId, cardId, body, showAuthor, ownerName })
   }, [socket, retroId])
 
   const deleteCard = useCallback((cardId: string) => {
@@ -64,6 +64,16 @@ export function useRetrospective(retroId: string | null, identity: UserIdentity,
   const toggleLike = useCallback((cardId: string) => {
     if (!socket || !retroId) return
     socket.emit(EVENTS.RETRO_CARD_LIKE_TOGGLE, { retroId, cardId })
+  }, [socket, retroId])
+
+  const addActionItem = useCallback((body: string, showAuthor: boolean, ownerName: string | null, linkedCardIds: string[]) => {
+    if (!socket || !retroId) return
+    socket.emit(EVENTS.RETRO_ACTION_ITEM_ADD, { retroId, body, showAuthor, ownerName, linkedCardIds })
+  }, [socket, retroId])
+
+  const toggleActionItemStatus = useCallback((cardId: string) => {
+    if (!socket || !retroId) return
+    socket.emit(EVENTS.RETRO_ACTION_ITEM_STATUS_TOGGLE, { retroId, cardId })
   }, [socket, retroId])
 
   const updateTimer = useCallback((durationMs: number) => {
@@ -115,6 +125,8 @@ export function useRetrospective(retroId: string | null, identity: UserIdentity,
     editCard,
     deleteCard,
     toggleLike,
+    addActionItem,
+    toggleActionItemStatus,
     updateTimer,
     startTimer,
     pauseTimer,

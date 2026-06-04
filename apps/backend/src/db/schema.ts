@@ -66,9 +66,12 @@ export async function runMigrations() {
       card_id               TEXT PRIMARY KEY,
       retro_id              TEXT NOT NULL,
       column_key            TEXT NOT NULL,
+      kind                  TEXT NOT NULL DEFAULT 'normal',
       body                  TEXT NOT NULL,
       author_participant_id TEXT NOT NULL,
       show_author           INTEGER NOT NULL DEFAULT 0,
+      action_status         TEXT NOT NULL DEFAULT 'open',
+      owner_name            TEXT,
       created_at            TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at            TEXT NOT NULL DEFAULT (datetime('now')),
       FOREIGN KEY (retro_id) REFERENCES retrospectives(retro_id) ON DELETE CASCADE
@@ -82,9 +85,19 @@ export async function runMigrations() {
       FOREIGN KEY (card_id) REFERENCES retrospective_cards(card_id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS retrospective_card_links (
+      action_item_card_id TEXT NOT NULL,
+      normal_card_id      TEXT NOT NULL,
+      created_at          TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (action_item_card_id, normal_card_id),
+      FOREIGN KEY (action_item_card_id) REFERENCES retrospective_cards(card_id) ON DELETE CASCADE,
+      FOREIGN KEY (normal_card_id) REFERENCES retrospective_cards(card_id) ON DELETE CASCADE
+    );
+
     CREATE INDEX IF NOT EXISTS idx_retro_participants_retro ON retrospective_participants(retro_id);
     CREATE INDEX IF NOT EXISTS idx_retro_participants_socket ON retrospective_participants(socket_id);
     CREATE INDEX IF NOT EXISTS idx_retro_cards_retro ON retrospective_cards(retro_id);
+    CREATE INDEX IF NOT EXISTS idx_retro_card_links_normal ON retrospective_card_links(normal_card_id);
     CREATE INDEX IF NOT EXISTS idx_retrospectives_activity ON retrospectives(last_activity_at);
   `
 
@@ -96,6 +109,9 @@ export async function runMigrations() {
   await runAsync(`ALTER TABLE retrospectives ADD COLUMN timer_remaining_ms INTEGER NOT NULL DEFAULT 300000`).catch(() => {})
   await runAsync(`ALTER TABLE retrospectives ADD COLUMN timer_status TEXT NOT NULL DEFAULT 'idle'`).catch(() => {})
   await runAsync(`ALTER TABLE retrospectives ADD COLUMN timer_started_at TEXT`).catch(() => {})
+  await runAsync(`ALTER TABLE retrospective_cards ADD COLUMN kind TEXT NOT NULL DEFAULT 'normal'`).catch(() => {})
+  await runAsync(`ALTER TABLE retrospective_cards ADD COLUMN action_status TEXT NOT NULL DEFAULT 'open'`).catch(() => {})
+  await runAsync(`ALTER TABLE retrospective_cards ADD COLUMN owner_name TEXT`).catch(() => {})
 }
 
 export async function resetConnections() {

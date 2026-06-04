@@ -1,12 +1,15 @@
 import type {
+  RetrospectiveActionItemStatus,
   RetrospectiveCardPublic,
+  RetrospectiveCardKind,
   RetrospectiveColumn,
+  RetrospectiveLinkedCardSummary,
   RetrospectiveParticipantPublic,
   RetrospectiveState,
   RetrospectiveTimerState,
   RetrospectiveTimerStatus,
 } from '@pokaface/shared'
-import { allAsync, getAsync, runAsync } from './client'
+import { allAsync, db, getAsync, runAsync } from './client'
 
 const VALID_COLUMNS: RetrospectiveColumn[] = ['loved', 'learned', 'lacked', 'longed', 'kudos']
 const DEFAULT_RETRO_TIMER_MS = 5 * 60 * 1000
@@ -37,18 +40,41 @@ interface RetrospectiveCardRow {
   card_id: string
   retro_id: string
   column_key: RetrospectiveColumn
+  kind: string | null
   body: string
   author_participant_id: string
   author_name: string | null
   show_author: number
+  action_status: string | null
+  owner_name: string | null
   created_at: string
   updated_at: string
   like_count: number
   liked_by_me: number
 }
 
+interface RetrospectiveCardLinkRow {
+  action_item_card_id: string
+  normal_card_id: string
+  column_key: RetrospectiveColumn
+  body: string
+}
+
 export function isRetrospectiveColumn(value: string): value is RetrospectiveColumn {
   return VALID_COLUMNS.includes(value as RetrospectiveColumn)
+}
+
+function normalizeCardKind(kind: string | null | undefined): RetrospectiveCardKind {
+  return kind === 'action_item' ? 'action_item' : 'normal'
+}
+
+function normalizeActionStatus(status: string | null | undefined): RetrospectiveActionItemStatus {
+  return status === 'done' ? 'done' : 'open'
+}
+
+function normalizeOwnerName(ownerName: string | null | undefined) {
+  const trimmed = ownerName?.trim()
+  return trimmed ? trimmed.slice(0, 80) : null
 }
 
 function normalizeDurationMs(durationMs: number | null | undefined) {
@@ -258,21 +284,100 @@ export async function addRetrospectiveCard(params: {
   await touchRetrospective(params.retroId)
 }
 
-export async function editRetrospectiveCard(cardId: string, retroId: string, body: string, showAuthor: boolean) {
+export async function addRetrospectiveActionItem(params: {
+  cardId: string
+  retroId: string
+  body: string
+  authorParticipantId: string
+  showAuthor: boolean
+  ownerName?: string | null
+  linkedCardIds: string[]
+}) {
+  const uniqueLinkedCardIds = Array.from(new Set(params.linkedCardIds.filter(Boolean)))
+  if (!uniqueLinkedCardIds.length) return false
+
+  const placeholders = uniqueLinkedCardIds.map(() => '?').join(', ')
+  const normalCards = db.prepare(
+    `SELECT card_id, column_key
+      FROM retrospective_cards
+      WHERE retro_id = ?
+        AND kind = 'normal'
+        AND card_id IN (${placeholders})`,
+  ).all(params.retroId, ...uniqueLinkedCardIds) as Array<{ card_id: string; column_key: RetrospectiveColumn }>
+
+  if (normalCards.length !== uniqueLinkedCardIds.length) return false
+
+  const normalCardIds = new Set(normalCards.map(card => card.card_id))
+  const insertActionItem = db.prepare(
+    `INSERT INTO retrospective_cards
+      (card_id, retro_id, column_key, kind, body, author_participant_id, show_author, action_status, owner_name)
+      VALUES (?, ?, ?, 'action_item', ?, ?, ?, 'open', ?)`,
+  )
+  const insertLink = db.prepare(
+    `INSERT INTO retrospective_card_links (action_item_card_id, normal_card_id) VALUES (?, ?)`,
+  )
+
+  db.transaction(() => {
+    insertActionItem.run(
+      params.cardId,
+      params.retroId,
+      normalCards[0].column_key,
+      params.body,
+      params.authorParticipantId,
+      params.showAuthor ? 1 : 0,
+      normalizeOwnerName(params.ownerName),
+    )
+
+    for (const linkedCardId of uniqueLinkedCardIds) {
+      if (normalCardIds.has(linkedCardId)) {
+        insertLink.run(params.cardId, linkedCardId)
+      }
+    }
+  })()
+
+  await touchRetrospective(params.retroId)
+  return true
+}
+
+export async function editRetrospectiveCard(cardId: string, retroId: string, body: string, showAuthor: boolean, ownerName?: string | null) {
   await runAsync(
-    `UPDATE retrospective_cards SET body = ?, show_author = ?, updated_at = datetime('now') WHERE card_id = ? AND retro_id = ?`,
-    [body, showAuthor ? 1 : 0, cardId, retroId],
+    `UPDATE retrospective_cards
+      SET body = ?,
+          show_author = ?,
+          owner_name = CASE WHEN kind = 'action_item' THEN ? ELSE owner_name END,
+          updated_at = datetime('now')
+      WHERE card_id = ? AND retro_id = ?`,
+    [body, showAuthor ? 1 : 0, normalizeOwnerName(ownerName), cardId, retroId],
   )
   await touchRetrospective(retroId)
 }
 
 export async function deleteRetrospectiveCard(cardId: string, retroId: string) {
+  const card = await getRetrospectiveCard(cardId, retroId)
   await runAsync(`DELETE FROM retrospective_cards WHERE card_id = ? AND retro_id = ?`, [cardId, retroId])
+  if (card?.kind === 'normal') {
+    await runAsync(
+      `DELETE FROM retrospective_cards
+        WHERE retro_id = ?
+          AND kind = 'action_item'
+          AND NOT EXISTS (
+            SELECT 1
+            FROM retrospective_card_links l
+            WHERE l.action_item_card_id = retrospective_cards.card_id
+          )`,
+      [retroId],
+    )
+  }
   await touchRetrospective(retroId)
 }
 
-export async function getRetrospectiveCard(cardId: string, retroId: string): Promise<{ author_participant_id: string } | undefined> {
-  return getAsync(`SELECT author_participant_id FROM retrospective_cards WHERE card_id = ? AND retro_id = ?`, [cardId, retroId])
+export async function getRetrospectiveCard(cardId: string, retroId: string): Promise<{ author_participant_id: string; kind: RetrospectiveCardKind } | undefined> {
+  const row = await getAsync(`SELECT author_participant_id, kind FROM retrospective_cards WHERE card_id = ? AND retro_id = ?`, [cardId, retroId])
+  if (!row) return undefined
+  return {
+    author_participant_id: row.author_participant_id,
+    kind: normalizeCardKind(row.kind),
+  }
 }
 
 export async function toggleRetrospectiveCardLike(cardId: string, participantId: string, retroId: string) {
@@ -288,6 +393,22 @@ export async function toggleRetrospectiveCardLike(cardId: string, participantId:
   }
 
   await touchRetrospective(retroId)
+}
+
+export async function toggleRetrospectiveActionItemStatus(cardId: string, retroId: string) {
+  const row = await getAsync(
+    `SELECT action_status FROM retrospective_cards WHERE card_id = ? AND retro_id = ? AND kind = 'action_item'`,
+    [cardId, retroId],
+  )
+  if (!row) return false
+
+  const nextStatus = normalizeActionStatus(row.action_status) === 'done' ? 'open' : 'done'
+  await runAsync(
+    `UPDATE retrospective_cards SET action_status = ?, updated_at = datetime('now') WHERE card_id = ? AND retro_id = ? AND kind = 'action_item'`,
+    [nextStatus, cardId, retroId],
+  )
+  await touchRetrospective(retroId)
+  return true
 }
 
 export async function buildRetrospectiveState(retroId: string, requesterParticipantId: string): Promise<RetrospectiveState | null> {
@@ -329,18 +450,52 @@ export async function buildRetrospectiveState(retroId: string, requesterParticip
     [requesterParticipantId, retroId],
   )
 
+  const linkRows: RetrospectiveCardLinkRow[] = await allAsync(
+    `SELECT
+      l.action_item_card_id,
+      l.normal_card_id,
+      n.column_key,
+      n.body
+    FROM retrospective_card_links l
+    INNER JOIN retrospective_cards a ON a.card_id = l.action_item_card_id
+    INNER JOIN retrospective_cards n ON n.card_id = l.normal_card_id AND n.retro_id = a.retro_id
+    WHERE a.retro_id = ?
+      AND a.kind = 'action_item'
+      AND n.kind = 'normal'
+    ORDER BY n.created_at ASC`,
+    [retroId],
+  )
+  const linkedCardsByActionId = new Map<string, RetrospectiveLinkedCardSummary[]>()
+  for (const row of linkRows) {
+    const linkedCards = linkedCardsByActionId.get(row.action_item_card_id) ?? []
+    linkedCards.push({
+      cardId: row.normal_card_id,
+      column: row.column_key,
+      body: row.body,
+    })
+    linkedCardsByActionId.set(row.action_item_card_id, linkedCards)
+  }
+
   const cards: RetrospectiveCardPublic[] = cardRows.map(row => {
     const isAuthor = row.author_participant_id === requesterParticipantId
+    const kind = normalizeCardKind(row.kind)
+    const linkedCards = linkedCardsByActionId.get(row.card_id) ?? []
+
     return {
       cardId: row.card_id,
       column: row.column_key,
+      kind,
       body: row.body,
       authorName: row.show_author === 1 ? row.author_name : null,
       showAuthor: row.show_author === 1,
-      likeCount: row.like_count,
-      likedByMe: row.liked_by_me === 1,
+      likeCount: kind === 'normal' ? row.like_count : 0,
+      likedByMe: kind === 'normal' && row.liked_by_me === 1,
       canEdit: isAuthor,
       canDelete: isAuthor || isModerator,
+      actionStatus: kind === 'action_item' ? normalizeActionStatus(row.action_status) : null,
+      ownerName: kind === 'action_item' ? row.owner_name : null,
+      linkedCardIds: linkedCards.map(card => card.cardId),
+      linkedCards,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     }

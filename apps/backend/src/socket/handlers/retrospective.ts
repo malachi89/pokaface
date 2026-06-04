@@ -3,6 +3,7 @@ import { uniqueNamesGenerator, adjectives, colors } from 'unique-names-generator
 import { v4 as uuid } from 'uuid'
 import { EVENTS } from '@pokaface/shared'
 import type {
+  AddRetrospectiveActionItemPayload,
   AddRetrospectiveCardPayload,
   CreateRetrospectivePayload,
   DeleteRetrospectiveCardPayload,
@@ -11,10 +12,12 @@ import type {
   PauseRetrospectiveTimerPayload,
   ResetRetrospectiveTimerPayload,
   StartRetrospectiveTimerPayload,
+  ToggleRetrospectiveActionItemStatusPayload,
   ToggleRetrospectiveCardLikePayload,
   UpdateRetrospectiveTimerPayload,
 } from '@pokaface/shared'
 import {
+  addRetrospectiveActionItem,
   addRetrospectiveCard,
   buildRetrospectiveState,
   createRetrospective,
@@ -30,6 +33,7 @@ import {
   pauseRetrospectiveTimer,
   resetRetrospectiveTimer,
   startRetrospectiveTimer,
+  toggleRetrospectiveActionItemStatus,
   toggleRetrospectiveCardLike,
   updateRetrospectiveTimerDuration,
   upsertRetrospectiveParticipant,
@@ -166,7 +170,7 @@ export function registerRetrospectiveHandlers(io: Server, socket: Socket) {
         return
       }
 
-      await editRetrospectiveCard(cardId, retroId, body.trim(), showAuthor)
+      await editRetrospectiveCard(cardId, retroId, body.trim(), showAuthor, payload.ownerName)
       await emitRetrospectiveState(io, retroId)
     } catch (err) {
       socket.emit(EVENTS.ROOM_ERROR, { code: 'ERROR', message: 'Failed to edit card' })
@@ -200,11 +204,70 @@ export function registerRetrospectiveHandlers(io: Server, socket: Socket) {
         socket.emit(EVENTS.ROOM_ERROR, { code: 'FORBIDDEN', message: 'Not in this retrospective' })
         return
       }
+      if (card.kind !== 'normal') {
+        socket.emit(EVENTS.ROOM_ERROR, { code: 'INVALID_PAYLOAD', message: 'Action items cannot be liked' })
+        return
+      }
 
       await toggleRetrospectiveCardLike(cardId, participant.participant_id, retroId)
       await emitRetrospectiveState(io, retroId)
     } catch (err) {
       socket.emit(EVENTS.ROOM_ERROR, { code: 'ERROR', message: 'Failed to update like' })
+    }
+  })
+
+  socket.on(EVENTS.RETRO_ACTION_ITEM_ADD, async (payload: AddRetrospectiveActionItemPayload) => {
+    try {
+      const { retroId, body, showAuthor, ownerName, linkedCardIds } = payload
+      const participant = await getRetrospectiveParticipantBySocketAndRetro(socket.id, retroId)
+      if (!participant) {
+        socket.emit(EVENTS.ROOM_ERROR, { code: 'FORBIDDEN', message: 'Not in this retrospective' })
+        return
+      }
+      if (!body?.trim() || !Array.isArray(linkedCardIds) || linkedCardIds.length === 0) {
+        socket.emit(EVENTS.ROOM_ERROR, { code: 'INVALID_PAYLOAD', message: 'Action item text and linked cards are required' })
+        return
+      }
+
+      const created = await addRetrospectiveActionItem({
+        cardId: uuid(),
+        retroId,
+        body: body.trim(),
+        authorParticipantId: participant.participant_id,
+        showAuthor,
+        ownerName,
+        linkedCardIds,
+      })
+      if (!created) {
+        socket.emit(EVENTS.ROOM_ERROR, { code: 'INVALID_PAYLOAD', message: 'Action items must link to existing retro cards' })
+        return
+      }
+
+      await emitRetrospectiveState(io, retroId)
+    } catch (err) {
+      socket.emit(EVENTS.ROOM_ERROR, { code: 'ERROR', message: 'Failed to add action item' })
+    }
+  })
+
+  socket.on(EVENTS.RETRO_ACTION_ITEM_STATUS_TOGGLE, async (payload: ToggleRetrospectiveActionItemStatusPayload) => {
+    try {
+      const { retroId, cardId } = payload
+      const participant = await getRetrospectiveParticipantBySocketAndRetro(socket.id, retroId)
+      const card = await getRetrospectiveCard(cardId, retroId)
+      if (!participant || !card || card.kind !== 'action_item') {
+        socket.emit(EVENTS.ROOM_ERROR, { code: 'FORBIDDEN', message: 'Not in this retrospective' })
+        return
+      }
+
+      const updated = await toggleRetrospectiveActionItemStatus(cardId, retroId)
+      if (!updated) {
+        socket.emit(EVENTS.ROOM_ERROR, { code: 'RETRO_NOT_FOUND', message: 'Action item not found' })
+        return
+      }
+
+      await emitRetrospectiveState(io, retroId)
+    } catch (err) {
+      socket.emit(EVENTS.ROOM_ERROR, { code: 'ERROR', message: 'Failed to update action item' })
     }
   })
 
