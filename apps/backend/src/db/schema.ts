@@ -42,6 +42,10 @@ export async function runMigrations() {
       retro_id              TEXT PRIMARY KEY,
       title                 TEXT NOT NULL DEFAULT '',
       creator_participant_id TEXT NOT NULL,
+      timer_duration_ms     INTEGER NOT NULL DEFAULT 300000,
+      timer_remaining_ms    INTEGER NOT NULL DEFAULT 300000,
+      timer_status          TEXT NOT NULL DEFAULT 'idle',
+      timer_started_at      TEXT,
       created_at            TEXT NOT NULL DEFAULT (datetime('now')),
       last_activity_at      TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -88,6 +92,10 @@ export async function runMigrations() {
 
   // Safe migration for existing databases — silently ignored if column already exists
   await runAsync(`ALTER TABLE rooms ADD COLUMN team_name TEXT NOT NULL DEFAULT ''`).catch(() => {})
+  await runAsync(`ALTER TABLE retrospectives ADD COLUMN timer_duration_ms INTEGER NOT NULL DEFAULT 300000`).catch(() => {})
+  await runAsync(`ALTER TABLE retrospectives ADD COLUMN timer_remaining_ms INTEGER NOT NULL DEFAULT 300000`).catch(() => {})
+  await runAsync(`ALTER TABLE retrospectives ADD COLUMN timer_status TEXT NOT NULL DEFAULT 'idle'`).catch(() => {})
+  await runAsync(`ALTER TABLE retrospectives ADD COLUMN timer_started_at TEXT`).catch(() => {})
 }
 
 export async function resetConnections() {

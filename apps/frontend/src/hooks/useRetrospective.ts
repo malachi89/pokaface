@@ -2,7 +2,11 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { EVENTS } from '@pokaface/shared'
-import type { RetrospectiveColumn, RetrospectiveState, UserIdentity } from '@pokaface/shared'
+import type {
+  RetrospectiveColumn,
+  RetrospectiveState,
+  UserIdentity,
+} from '@pokaface/shared'
 import type { Socket } from 'socket.io-client'
 
 interface UseRetrospectiveState {
@@ -62,6 +66,26 @@ export function useRetrospective(retroId: string | null, identity: UserIdentity,
     socket.emit(EVENTS.RETRO_CARD_LIKE_TOGGLE, { retroId, cardId })
   }, [socket, retroId])
 
+  const updateTimer = useCallback((durationMs: number) => {
+    if (!socket || !retroId) return
+    socket.emit(EVENTS.RETRO_TIMER_UPDATE, { retroId, durationMs })
+  }, [socket, retroId])
+
+  const startTimer = useCallback(() => {
+    if (!socket || !retroId) return
+    socket.emit(EVENTS.RETRO_TIMER_START, { retroId })
+  }, [socket, retroId])
+
+  const pauseTimer = useCallback(() => {
+    if (!socket || !retroId) return
+    socket.emit(EVENTS.RETRO_TIMER_PAUSE, { retroId })
+  }, [socket, retroId])
+
+  const resetTimer = useCallback(() => {
+    if (!socket || !retroId) return
+    socket.emit(EVENTS.RETRO_TIMER_RESET, { retroId })
+  }, [socket, retroId])
+
   useEffect(() => {
     if (!socket) return
 
@@ -85,5 +109,15 @@ export function useRetrospective(retroId: string | null, identity: UserIdentity,
     }
   }, [socket, connected, retroId, identity, joinRetrospective, applyState])
 
-  return { state, addCard, editCard, deleteCard, toggleLike }
+  return {
+    state,
+    addCard,
+    editCard,
+    deleteCard,
+    toggleLike,
+    updateTimer,
+    startTimer,
+    pauseTimer,
+    resetTimer,
+  }
 }

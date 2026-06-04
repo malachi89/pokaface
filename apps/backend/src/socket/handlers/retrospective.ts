@@ -8,7 +8,11 @@ import type {
   DeleteRetrospectiveCardPayload,
   EditRetrospectiveCardPayload,
   JoinRetrospectivePayload,
+  PauseRetrospectiveTimerPayload,
+  ResetRetrospectiveTimerPayload,
+  StartRetrospectiveTimerPayload,
   ToggleRetrospectiveCardLikePayload,
+  UpdateRetrospectiveTimerPayload,
 } from '@pokaface/shared'
 import {
   addRetrospectiveCard,
@@ -23,7 +27,11 @@ import {
   getRetrospectiveParticipants,
   getRetrospectiveParticipantsBySocket,
   isRetrospectiveColumn,
+  pauseRetrospectiveTimer,
+  resetRetrospectiveTimer,
+  startRetrospectiveTimer,
   toggleRetrospectiveCardLike,
+  updateRetrospectiveTimerDuration,
   upsertRetrospectiveParticipant,
 } from '../../db/retrospectives'
 
@@ -43,6 +51,12 @@ async function emitRetrospectiveState(io: Server, retroId: string) {
       io.to(participant.socket_id).emit(EVENTS.RETRO_UPDATED, { retrospective })
     }
   }))
+}
+
+async function getRetrospectiveModerator(socket: Socket, retroId: string) {
+  const participant = await getRetrospectiveParticipantBySocketAndRetro(socket.id, retroId)
+  if (!participant || participant.is_moderator !== 1) return null
+  return participant
 }
 
 export function registerRetrospectiveHandlers(io: Server, socket: Socket) {
@@ -191,6 +205,85 @@ export function registerRetrospectiveHandlers(io: Server, socket: Socket) {
       await emitRetrospectiveState(io, retroId)
     } catch (err) {
       socket.emit(EVENTS.ROOM_ERROR, { code: 'ERROR', message: 'Failed to update like' })
+    }
+  })
+
+  socket.on(EVENTS.RETRO_TIMER_UPDATE, async (payload: UpdateRetrospectiveTimerPayload) => {
+    try {
+      const { retroId, durationMs } = payload
+      if (!(await getRetrospectiveModerator(socket, retroId))) {
+        socket.emit(EVENTS.ROOM_ERROR, { code: 'FORBIDDEN', message: 'Only the moderator can change the timer' })
+        return
+      }
+      if (!Number.isFinite(durationMs) || durationMs <= 0) {
+        socket.emit(EVENTS.ROOM_ERROR, { code: 'INVALID_PAYLOAD', message: 'Timer duration must be greater than zero' })
+        return
+      }
+
+      await updateRetrospectiveTimerDuration(retroId, durationMs)
+      await emitRetrospectiveState(io, retroId)
+    } catch (err) {
+      socket.emit(EVENTS.ROOM_ERROR, { code: 'ERROR', message: 'Failed to update timer' })
+    }
+  })
+
+  socket.on(EVENTS.RETRO_TIMER_START, async (payload: StartRetrospectiveTimerPayload) => {
+    try {
+      const { retroId } = payload
+      if (!(await getRetrospectiveModerator(socket, retroId))) {
+        socket.emit(EVENTS.ROOM_ERROR, { code: 'FORBIDDEN', message: 'Only the moderator can start the timer' })
+        return
+      }
+
+      const started = await startRetrospectiveTimer(retroId)
+      if (!started) {
+        socket.emit(EVENTS.ROOM_ERROR, { code: 'INVALID_STATE', message: 'Timer cannot be started' })
+        return
+      }
+
+      await emitRetrospectiveState(io, retroId)
+    } catch (err) {
+      socket.emit(EVENTS.ROOM_ERROR, { code: 'ERROR', message: 'Failed to start timer' })
+    }
+  })
+
+  socket.on(EVENTS.RETRO_TIMER_PAUSE, async (payload: PauseRetrospectiveTimerPayload) => {
+    try {
+      const { retroId } = payload
+      if (!(await getRetrospectiveModerator(socket, retroId))) {
+        socket.emit(EVENTS.ROOM_ERROR, { code: 'FORBIDDEN', message: 'Only the moderator can pause the timer' })
+        return
+      }
+
+      const paused = await pauseRetrospectiveTimer(retroId)
+      if (!paused) {
+        socket.emit(EVENTS.ROOM_ERROR, { code: 'RETRO_NOT_FOUND', message: 'Retrospective not found' })
+        return
+      }
+
+      await emitRetrospectiveState(io, retroId)
+    } catch (err) {
+      socket.emit(EVENTS.ROOM_ERROR, { code: 'ERROR', message: 'Failed to pause timer' })
+    }
+  })
+
+  socket.on(EVENTS.RETRO_TIMER_RESET, async (payload: ResetRetrospectiveTimerPayload) => {
+    try {
+      const { retroId } = payload
+      if (!(await getRetrospectiveModerator(socket, retroId))) {
+        socket.emit(EVENTS.ROOM_ERROR, { code: 'FORBIDDEN', message: 'Only the moderator can reset the timer' })
+        return
+      }
+
+      const reset = await resetRetrospectiveTimer(retroId)
+      if (!reset) {
+        socket.emit(EVENTS.ROOM_ERROR, { code: 'RETRO_NOT_FOUND', message: 'Retrospective not found' })
+        return
+      }
+
+      await emitRetrospectiveState(io, retroId)
+    } catch (err) {
+      socket.emit(EVENTS.ROOM_ERROR, { code: 'ERROR', message: 'Failed to reset timer' })
     }
   })
 

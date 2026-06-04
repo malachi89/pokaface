@@ -42,6 +42,8 @@ export interface UserIdentity {
 
 export type RetrospectiveColumn = 'loved' | 'learned' | 'lacked' | 'longed' | 'kudos'
 
+export type RetrospectiveTimerStatus = 'idle' | 'running'
+
 export interface RetrospectiveParticipantPublic {
   participantId: string
   name: string
@@ -63,10 +65,18 @@ export interface RetrospectiveCardPublic {
   updatedAt: string
 }
 
+export interface RetrospectiveTimerState {
+  durationMs: number
+  remainingMs: number
+  status: RetrospectiveTimerStatus
+  startedAt: string | null
+}
+
 export interface RetrospectiveState {
   retroId: string
   title: string
   participants: RetrospectiveParticipantPublic[]
   cards: RetrospectiveCardPublic[]
+  timer: RetrospectiveTimerState
   createdAt: string
 }

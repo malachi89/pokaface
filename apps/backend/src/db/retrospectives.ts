@@ -3,15 +3,22 @@ import type {
   RetrospectiveColumn,
   RetrospectiveParticipantPublic,
   RetrospectiveState,
+  RetrospectiveTimerState,
+  RetrospectiveTimerStatus,
 } from '@pokaface/shared'
 import { allAsync, getAsync, runAsync } from './client'
 
 const VALID_COLUMNS: RetrospectiveColumn[] = ['loved', 'learned', 'lacked', 'longed', 'kudos']
+const DEFAULT_RETRO_TIMER_MS = 5 * 60 * 1000
 
 interface RetrospectiveRow {
   retro_id: string
   title: string
   creator_participant_id: string
+  timer_duration_ms: number | null
+  timer_remaining_ms: number | null
+  timer_status: string | null
+  timer_started_at: string | null
   created_at: string
   last_activity_at: string
 }
@@ -42,6 +49,73 @@ interface RetrospectiveCardRow {
 
 export function isRetrospectiveColumn(value: string): value is RetrospectiveColumn {
   return VALID_COLUMNS.includes(value as RetrospectiveColumn)
+}
+
+function normalizeDurationMs(durationMs: number | null | undefined) {
+  if (!Number.isFinite(durationMs) || (durationMs ?? 0) <= 0) {
+    return DEFAULT_RETRO_TIMER_MS
+  }
+
+  return Math.max(1000, Math.floor(durationMs as number))
+}
+
+function clampRemainingMs(remainingMs: number | null | undefined, durationMs: number) {
+  if (!Number.isFinite(remainingMs)) {
+    return durationMs
+  }
+
+  return Math.min(durationMs, Math.max(0, Math.floor(remainingMs as number)))
+}
+
+function normalizeTimerStatus(status: string | null | undefined): RetrospectiveTimerStatus {
+  return status === 'running' ? 'running' : 'idle'
+}
+
+function computeTimerSnapshot(retrospective: RetrospectiveRow): RetrospectiveTimerState {
+  const durationMs = normalizeDurationMs(retrospective.timer_duration_ms)
+  const baseRemainingMs = clampRemainingMs(retrospective.timer_remaining_ms, durationMs)
+  const status = normalizeTimerStatus(retrospective.timer_status)
+
+  if (status !== 'running' || !retrospective.timer_started_at) {
+    return {
+      durationMs,
+      remainingMs: baseRemainingMs,
+      status: 'idle',
+      startedAt: null,
+    }
+  }
+
+  const startedAtMs = Date.parse(retrospective.timer_started_at)
+  if (Number.isNaN(startedAtMs)) {
+    return {
+      durationMs,
+      remainingMs: baseRemainingMs,
+      status: 'idle',
+      startedAt: null,
+    }
+  }
+
+  const elapsedMs = Date.now() - startedAtMs
+  const remainingMs = Math.max(0, baseRemainingMs - Math.max(0, elapsedMs))
+
+  return {
+    durationMs,
+    remainingMs,
+    status: remainingMs > 0 ? 'running' : 'idle',
+    startedAt: remainingMs > 0 ? retrospective.timer_started_at : null,
+  }
+}
+
+async function persistTimerState(retroId: string, timer: RetrospectiveTimerState) {
+  await runAsync(
+    `UPDATE retrospectives
+      SET timer_duration_ms = ?,
+          timer_remaining_ms = ?,
+          timer_status = ?,
+          timer_started_at = ?
+      WHERE retro_id = ?`,
+    [timer.durationMs, timer.remainingMs, timer.status, timer.startedAt, retroId],
+  )
 }
 
 export async function createRetrospective(params: {
@@ -108,6 +182,67 @@ export async function getRetrospectiveParticipants(retroId: string): Promise<Ret
   return allAsync(`SELECT * FROM retrospective_participants WHERE retro_id = ? ORDER BY joined_at`, [retroId])
 }
 
+export async function updateRetrospectiveTimerDuration(retroId: string, durationMs: number) {
+  const normalizedDurationMs = normalizeDurationMs(durationMs)
+  await runAsync(
+    `UPDATE retrospectives
+      SET timer_duration_ms = ?,
+          timer_remaining_ms = ?,
+          timer_status = 'idle',
+          timer_started_at = NULL
+      WHERE retro_id = ?`,
+    [normalizedDurationMs, normalizedDurationMs, retroId],
+  )
+  await touchRetrospective(retroId)
+}
+
+export async function startRetrospectiveTimer(retroId: string) {
+  const retrospective = await getRetrospective(retroId)
+  if (!retrospective) return false
+
+  const timer = computeTimerSnapshot(retrospective)
+  if (timer.remainingMs <= 0) {
+    return false
+  }
+
+  await persistTimerState(retroId, {
+    ...timer,
+    status: 'running',
+    startedAt: new Date().toISOString(),
+  })
+  await touchRetrospective(retroId)
+  return true
+}
+
+export async function pauseRetrospectiveTimer(retroId: string) {
+  const retrospective = await getRetrospective(retroId)
+  if (!retrospective) return false
+
+  const timer = computeTimerSnapshot(retrospective)
+  await persistTimerState(retroId, {
+    ...timer,
+    status: 'idle',
+    startedAt: null,
+  })
+  await touchRetrospective(retroId)
+  return true
+}
+
+export async function resetRetrospectiveTimer(retroId: string) {
+  const retrospective = await getRetrospective(retroId)
+  if (!retrospective) return false
+
+  const durationMs = normalizeDurationMs(retrospective.timer_duration_ms)
+  await persistTimerState(retroId, {
+    durationMs,
+    remainingMs: durationMs,
+    status: 'idle',
+    startedAt: null,
+  })
+  await touchRetrospective(retroId)
+  return true
+}
+
 export async function addRetrospectiveCard(params: {
   cardId: string
   retroId: string
@@ -159,6 +294,16 @@ export async function buildRetrospectiveState(retroId: string, requesterParticip
   const retrospective = await getRetrospective(retroId)
   if (!retrospective) return null
 
+  const timer = computeTimerSnapshot(retrospective)
+  if (
+    timer.durationMs !== normalizeDurationMs(retrospective.timer_duration_ms)
+    || timer.remainingMs !== clampRemainingMs(retrospective.timer_remaining_ms, normalizeDurationMs(retrospective.timer_duration_ms))
+    || timer.status !== normalizeTimerStatus(retrospective.timer_status)
+    || timer.startedAt !== retrospective.timer_started_at
+  ) {
+    await persistTimerState(retroId, timer)
+  }
+
   const participantRows = await getRetrospectiveParticipants(retroId)
   const requester = participantRows.find(p => p.participant_id === requesterParticipantId)
   const isModerator = requester?.is_moderator === 1
@@ -206,6 +351,7 @@ export async function buildRetrospectiveState(retroId: string, requesterParticip
     title: retrospective.title,
     participants,
     cards,
+    timer,
     createdAt: retrospective.created_at,
   }
 }

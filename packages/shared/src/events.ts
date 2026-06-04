@@ -1,5 +1,10 @@
 import type { CardValue } from './cards'
-import type { RetrospectiveColumn, RetrospectiveState, RoomState, VoteResults } from './types'
+import type {
+  RetrospectiveColumn,
+  RetrospectiveState,
+  RoomState,
+  VoteResults,
+} from './types'
 
 export const EVENTS = {
   ROOM_CREATE: 'room:create',
@@ -32,6 +37,10 @@ export const EVENTS = {
   RETRO_CARD_EDIT: 'retro:card:edit',
   RETRO_CARD_DELETE: 'retro:card:delete',
   RETRO_CARD_LIKE_TOGGLE: 'retro:card:like:toggle',
+  RETRO_TIMER_UPDATE: 'retro:timer:update',
+  RETRO_TIMER_START: 'retro:timer:start',
+  RETRO_TIMER_PAUSE: 'retro:timer:pause',
+  RETRO_TIMER_RESET: 'retro:timer:reset',
 } as const
 
 export type EventName = (typeof EVENTS)[keyof typeof EVENTS]
@@ -132,6 +141,23 @@ export interface DeleteRetrospectiveCardPayload {
 export interface ToggleRetrospectiveCardLikePayload {
   retroId: string
   cardId: string
+}
+
+export interface UpdateRetrospectiveTimerPayload {
+  retroId: string
+  durationMs: number
+}
+
+export interface StartRetrospectiveTimerPayload {
+  retroId: string
+}
+
+export interface PauseRetrospectiveTimerPayload {
+  retroId: string
+}
+
+export interface ResetRetrospectiveTimerPayload {
+  retroId: string
 }
 
 export interface RetrospectiveCreatedPayload {

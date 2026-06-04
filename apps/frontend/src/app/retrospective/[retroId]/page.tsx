@@ -1,9 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import type { RetrospectiveCardPublic, RetrospectiveColumn } from '@pokaface/shared'
+import type {
+  RetrospectiveCardPublic,
+  RetrospectiveColumn,
+  RetrospectiveTimerState,
+} from '@pokaface/shared'
 import { useIdentity } from '@/hooks/useIdentity'
 import { useRetrospective } from '@/hooks/useRetrospective'
 import { getBackendUrl } from '@/lib/backendUrl'
@@ -127,6 +131,204 @@ function AppreciationIcon({ filled }: { filled: boolean }) {
     >
       <path d="M12 21s-6.716-4.35-9-8.318C1.32 9.758 3.432 6 7.09 6c2.04 0 3.187 1.126 4.01 2.21C11.723 7.126 12.87 6 14.91 6 18.568 6 20.68 9.758 21 12.682 18.716 16.65 12 21 12 21Z" />
     </svg>
+  )
+}
+
+function formatTimer(totalMs: number) {
+  const totalSeconds = Math.max(0, Math.ceil(totalMs / 1000))
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+}
+
+function getDisplayedRemainingMs(timer: RetrospectiveTimerState, nowMs: number) {
+  if (timer.status !== 'running' || !timer.startedAt) {
+    return timer.remainingMs
+  }
+
+  const startedAtMs = Date.parse(timer.startedAt)
+  if (Number.isNaN(startedAtMs)) {
+    return timer.remainingMs
+  }
+
+  const elapsedMs = Math.max(0, nowMs - startedAtMs)
+  return Math.max(0, timer.remainingMs - elapsedMs)
+}
+
+function RetroTimeUpBanner({ timer }: { timer: RetrospectiveTimerState }) {
+  const [visible, setVisible] = useState(false)
+  const [nowMs, setNowMs] = useState(() => Date.now())
+  const mounted = useRef(false)
+  const wasExpired = useRef(false)
+
+  useEffect(() => {
+    setNowMs(Date.now())
+    if (timer.status !== 'running') return
+
+    const interval = window.setInterval(() => {
+      setNowMs(Date.now())
+    }, 250)
+
+    return () => window.clearInterval(interval)
+  }, [timer.status, timer.startedAt, timer.remainingMs])
+
+  const remainingMs = useMemo(
+    () => getDisplayedRemainingMs(timer, nowMs),
+    [timer, nowMs],
+  )
+
+  useEffect(() => {
+    const isExpired = remainingMs <= 0
+
+    if (!mounted.current) {
+      mounted.current = true
+      wasExpired.current = isExpired
+      return
+    }
+
+    if (isExpired && !wasExpired.current) {
+      setVisible(true)
+      const timeout = window.setTimeout(() => setVisible(false), 1800)
+      wasExpired.current = true
+      return () => window.clearTimeout(timeout)
+    }
+
+    wasExpired.current = isExpired
+  }, [remainingMs])
+
+  if (!visible) return null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+      <div className="animate-vote-start rounded-2xl bg-red-600 px-10 py-7 text-center text-white shadow-2xl">
+        <div className="mb-3 text-5xl">⏱️</div>
+        <p className="text-2xl font-bold tracking-wide">Time&apos;s up!</p>
+      </div>
+    </div>
+  )
+}
+
+function RetroTimerPanel({
+  timer,
+  isModerator,
+  onUpdate,
+  onStart,
+  onPause,
+  onReset,
+}: {
+  timer: RetrospectiveTimerState
+  isModerator: boolean
+  onUpdate: (durationMs: number) => void
+  onStart: () => void
+  onPause: () => void
+  onReset: () => void
+}) {
+  const [nowMs, setNowMs] = useState(() => Date.now())
+
+  useEffect(() => {
+    setNowMs(Date.now())
+    if (timer.status !== 'running') return
+
+    const interval = window.setInterval(() => {
+      setNowMs(Date.now())
+    }, 1000)
+
+    return () => window.clearInterval(interval)
+  }, [timer.status, timer.startedAt, timer.remainingMs])
+
+  const displayedRemainingMs = useMemo(
+    () => getDisplayedRemainingMs(timer, nowMs),
+    [timer, nowMs],
+  )
+  const hasExpired = displayedRemainingMs <= 0
+  const isRunning = timer.status === 'running' && !hasExpired
+  const canEdit = isModerator && !isRunning
+  const iconButtonClass = 'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-200/70 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white'
+  const timerStepMs = 30 * 1000
+
+  const decreaseTimer = () => {
+    if (!canEdit) return
+    onUpdate(Math.max(timerStepMs, timer.durationMs - timerStepMs))
+  }
+
+  const increaseTimer = () => {
+    if (!canEdit) return
+    onUpdate(timer.durationMs + timerStepMs)
+  }
+
+  return (
+    <section className="inline-flex h-9 max-w-full items-center gap-1 rounded-md border border-slate-300/80 bg-white/75 px-2 shadow-sm backdrop-blur-sm dark:border-white/10 dark:bg-white/10">
+      <div className="min-w-[3.25rem] px-1 text-center font-mono text-sm font-semibold tabular-nums text-slate-900 dark:text-white">
+        {formatTimer(displayedRemainingMs)}
+      </div>
+      {hasExpired && (
+        <span className="whitespace-nowrap rounded-md bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-red-700 dark:bg-red-950/60 dark:text-red-300">
+          Time&apos;s up
+        </span>
+      )}
+      {isModerator && (
+        <>
+          <span className="mx-0.5 h-4 w-px bg-slate-300 dark:bg-white/15" />
+          <div className="flex h-7 w-6 shrink-0 flex-col overflow-hidden rounded-md border border-slate-300/70 dark:border-white/15">
+            <button
+              type="button"
+              onClick={increaseTimer}
+              disabled={!canEdit}
+              aria-label="Increase timer by 30 seconds"
+              title="+30 seconds"
+              className="flex h-1/2 items-center justify-center text-slate-500 transition-colors hover:bg-slate-200/70 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
+            >
+              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 15l6-6 6 6" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={decreaseTimer}
+              disabled={!canEdit || timer.durationMs <= timerStepMs}
+              aria-label="Decrease timer by 30 seconds"
+              title="-30 seconds"
+              className="flex h-1/2 items-center justify-center border-t border-slate-300/70 text-slate-500 transition-colors hover:bg-slate-200/70 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent dark:border-white/15 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
+            >
+              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={isRunning ? onPause : onStart}
+            disabled={hasExpired}
+            aria-label={isRunning ? 'Pause timer' : 'Start timer'}
+            title={isRunning ? 'Pause timer' : 'Start timer'}
+            className={iconButtonClass}
+          >
+            {isRunning ? (
+              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
+                <path d="M7 5h3v14H7zm7 0h3v14h-3z" />
+              </svg>
+            ) : (
+              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={onReset}
+            disabled={isRunning}
+            aria-label="Reset timer"
+            title="Reset timer"
+            className={iconButtonClass}
+          >
+            <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 12a9 9 0 1 0 3-6.7" />
+              <path d="M3 3v6h6" />
+            </svg>
+          </button>
+        </>
+      )}
+    </section>
   )
 }
 
@@ -312,7 +514,7 @@ export default function RetrospectiveBoardPage({ params }: { params: { retroId: 
   const router = useRouter()
   const { identity, setName, synced } = useIdentity()
   const { socket, connected, reconnecting } = useSocket(backendUrl)
-  const { state, addCard, editCard, deleteCard, toggleLike } = useRetrospective(
+  const { state, addCard, editCard, deleteCard, toggleLike, updateTimer, startTimer, pauseTimer, resetTimer } = useRetrospective(
     params.retroId,
     identity,
     socket,
@@ -369,6 +571,7 @@ export default function RetrospectiveBoardPage({ params }: { params: { retroId: 
 
   return (
     <div className="min-h-screen bg-surface p-4 md:p-8">
+      <RetroTimeUpBanner timer={state.retrospective.timer} />
       <div className="max-w-7xl mx-auto space-y-6">
         <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-col items-start gap-4">
@@ -377,7 +580,17 @@ export default function RetrospectiveBoardPage({ params }: { params: { retroId: 
                 Home
               </Button>
             </Link>
-            <h1 className="text-3xl font-bold text-slate-900 dark:text-white break-words">{title}</h1>
+            <div className="flex flex-col items-start gap-2">
+              <h1 className="text-3xl font-bold text-slate-900 dark:text-white break-words">{title}</h1>
+              <RetroTimerPanel
+                timer={state.retrospective.timer}
+                isModerator={state.isModerator}
+                onUpdate={updateTimer}
+                onStart={startTimer}
+                onPause={pauseTimer}
+                onReset={resetTimer}
+              />
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
