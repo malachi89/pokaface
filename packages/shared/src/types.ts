@@ -40,7 +40,7 @@ export interface UserIdentity {
   participantToken: string
 }
 
-export type RetrospectiveColumn = 'loved' | 'learned' | 'lacked' | 'longed' | 'kudos'
+export type RetrospectiveColumn = string
 
 export type RetrospectiveTimerStatus = 'idle' | 'running'
 export type RetrospectiveCardKind = 'normal' | 'action_item'
@@ -51,6 +51,12 @@ export interface RetrospectiveParticipantPublic {
   name: string
   isConnected: boolean
   isModerator: boolean
+}
+
+export interface RetrospectiveColumnDefinition {
+  columnId: string
+  title: string
+  styleKey: string
 }
 
 export interface RetrospectiveCardPublic {
@@ -66,6 +72,7 @@ export interface RetrospectiveCardPublic {
   canDelete: boolean
   actionStatus: RetrospectiveActionItemStatus | null
   ownerName: string | null
+  originCardId: string | null
   linkedCardIds: string[]
   linkedCards: RetrospectiveLinkedCardSummary[]
   createdAt: string
@@ -88,6 +95,7 @@ export interface RetrospectiveTimerState {
 export interface RetrospectiveState {
   retroId: string
   title: string
+  columns: RetrospectiveColumnDefinition[]
   participants: RetrospectiveParticipantPublic[]
   cards: RetrospectiveCardPublic[]
   timer: RetrospectiveTimerState

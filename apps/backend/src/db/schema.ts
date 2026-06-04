@@ -62,6 +62,17 @@ export async function runMigrations() {
       FOREIGN KEY (retro_id) REFERENCES retrospectives(retro_id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS retrospective_columns (
+      column_id   TEXT NOT NULL,
+      retro_id    TEXT NOT NULL,
+      title       TEXT NOT NULL,
+      style_key   TEXT NOT NULL DEFAULT 'loved',
+      position    INTEGER NOT NULL,
+      created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (column_id),
+      FOREIGN KEY (retro_id) REFERENCES retrospectives(retro_id) ON DELETE CASCADE
+    );
+
     CREATE TABLE IF NOT EXISTS retrospective_cards (
       card_id               TEXT PRIMARY KEY,
       retro_id              TEXT NOT NULL,
@@ -96,6 +107,7 @@ export async function runMigrations() {
 
     CREATE INDEX IF NOT EXISTS idx_retro_participants_retro ON retrospective_participants(retro_id);
     CREATE INDEX IF NOT EXISTS idx_retro_participants_socket ON retrospective_participants(socket_id);
+    CREATE INDEX IF NOT EXISTS idx_retro_columns_retro ON retrospective_columns(retro_id, position);
     CREATE INDEX IF NOT EXISTS idx_retro_cards_retro ON retrospective_cards(retro_id);
     CREATE INDEX IF NOT EXISTS idx_retro_card_links_normal ON retrospective_card_links(normal_card_id);
     CREATE INDEX IF NOT EXISTS idx_retrospectives_activity ON retrospectives(last_activity_at);
@@ -112,6 +124,64 @@ export async function runMigrations() {
   await runAsync(`ALTER TABLE retrospective_cards ADD COLUMN kind TEXT NOT NULL DEFAULT 'normal'`).catch(() => {})
   await runAsync(`ALTER TABLE retrospective_cards ADD COLUMN action_status TEXT NOT NULL DEFAULT 'open'`).catch(() => {})
   await runAsync(`ALTER TABLE retrospective_cards ADD COLUMN owner_name TEXT`).catch(() => {})
+  await runAsync(`ALTER TABLE retrospective_columns ADD COLUMN style_key TEXT NOT NULL DEFAULT 'loved'`).catch(() => {})
+  await runAsync(`
+    INSERT OR IGNORE INTO retrospective_columns (column_id, retro_id, title, style_key, position)
+    SELECT retro_id || ':loved', retro_id, 'What went well', 'loved', 0
+    FROM retrospectives
+    WHERE NOT EXISTS (
+      SELECT 1 FROM retrospective_columns c WHERE c.retro_id = retrospectives.retro_id AND c.style_key = 'loved'
+    )
+  `).catch(() => {})
+  await runAsync(`
+    INSERT OR IGNORE INTO retrospective_columns (column_id, retro_id, title, style_key, position)
+    SELECT retro_id || ':learned', retro_id, 'What we learned', 'learned', 1
+    FROM retrospectives
+    WHERE NOT EXISTS (
+      SELECT 1 FROM retrospective_columns c WHERE c.retro_id = retrospectives.retro_id AND c.style_key = 'learned'
+    )
+  `).catch(() => {})
+  await runAsync(`
+    INSERT OR IGNORE INTO retrospective_columns (column_id, retro_id, title, style_key, position)
+    SELECT retro_id || ':lacked', retro_id, 'What could be better', 'lacked', 2
+    FROM retrospectives
+    WHERE NOT EXISTS (
+      SELECT 1 FROM retrospective_columns c WHERE c.retro_id = retrospectives.retro_id AND c.style_key = 'lacked'
+    )
+  `).catch(() => {})
+  await runAsync(`
+    INSERT OR IGNORE INTO retrospective_columns (column_id, retro_id, title, style_key, position)
+    SELECT retro_id || ':longed', retro_id, 'What we want next', 'longed', 3
+    FROM retrospectives
+    WHERE NOT EXISTS (
+      SELECT 1 FROM retrospective_columns c WHERE c.retro_id = retrospectives.retro_id AND c.style_key = 'longed'
+    )
+  `).catch(() => {})
+  await runAsync(`
+    INSERT OR IGNORE INTO retrospective_columns (column_id, retro_id, title, style_key, position)
+    SELECT retro_id || ':kudos', retro_id, 'Kudos', 'kudos', 4
+    FROM retrospectives
+    WHERE NOT EXISTS (
+      SELECT 1 FROM retrospective_columns c WHERE c.retro_id = retrospectives.retro_id AND c.style_key = 'kudos'
+    )
+  `).catch(() => {})
+  await runAsync(`
+    UPDATE retrospective_columns
+    SET style_key = CASE
+      WHEN column_id = 'loved' OR column_id LIKE '%:loved' THEN 'loved'
+      WHEN column_id = 'learned' OR column_id LIKE '%:learned' THEN 'learned'
+      WHEN column_id = 'lacked' OR column_id LIKE '%:lacked' THEN 'lacked'
+      WHEN column_id = 'longed' OR column_id LIKE '%:longed' THEN 'longed'
+      WHEN column_id = 'kudos' OR column_id LIKE '%:kudos' THEN 'kudos'
+      ELSE style_key
+    END
+    WHERE column_id IN ('loved', 'learned', 'lacked', 'longed', 'kudos')
+      OR column_id LIKE '%:loved'
+      OR column_id LIKE '%:learned'
+      OR column_id LIKE '%:lacked'
+      OR column_id LIKE '%:longed'
+      OR column_id LIKE '%:kudos'
+  `).catch(() => {})
 }
 
 export async function resetConnections() {

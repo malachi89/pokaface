@@ -3,6 +3,7 @@ import type {
   RetrospectiveCardPublic,
   RetrospectiveCardKind,
   RetrospectiveColumn,
+  RetrospectiveColumnDefinition,
   RetrospectiveLinkedCardSummary,
   RetrospectiveParticipantPublic,
   RetrospectiveState,
@@ -11,8 +12,30 @@ import type {
 } from '@pokaface/shared'
 import { allAsync, db, getAsync, runAsync } from './client'
 
-const VALID_COLUMNS: RetrospectiveColumn[] = ['loved', 'learned', 'lacked', 'longed', 'kudos']
 const DEFAULT_RETRO_TIMER_MS = 5 * 60 * 1000
+const COLUMN_STYLE_KEYS = ['loved', 'learned', 'lacked', 'longed', 'kudos'] as const
+const DEFAULT_RETROSPECTIVE_COLUMNS: Array<{ title: string; styleKey: typeof COLUMN_STYLE_KEYS[number] }> = [
+  { title: 'What went well', styleKey: 'loved' },
+  { title: 'What we learned', styleKey: 'learned' },
+  { title: 'What could be better', styleKey: 'lacked' },
+  { title: 'What we want next', styleKey: 'longed' },
+  { title: 'Kudos', styleKey: 'kudos' },
+]
+const EXTRA_COLUMN_STYLE_COLORS = [
+  'lime',
+  'cyan',
+  'orange',
+  'blue',
+  'green',
+  'fuchsia',
+  'purple',
+  'yellow',
+  'teal',
+  'red',
+  'indigo',
+  'pink',
+] as const
+const POSITIVE_COLUMN_EMOJIS = ['🌟', '🚀', '🌱', '🎉', '🙌', '💪', '🏆', '😊', '🤝', '🔥', '✅', '🎯'] as const
 
 interface RetrospectiveRow {
   retro_id: string
@@ -53,15 +76,84 @@ interface RetrospectiveCardRow {
   liked_by_me: number
 }
 
+interface RetrospectiveColumnRow {
+  column_id: string
+  retro_id: string
+  title: string
+  style_key: string
+  position: number
+}
+
 interface RetrospectiveCardLinkRow {
   action_item_card_id: string
   normal_card_id: string
   column_key: RetrospectiveColumn
   body: string
+  created_at: string
 }
 
-export function isRetrospectiveColumn(value: string): value is RetrospectiveColumn {
-  return VALID_COLUMNS.includes(value as RetrospectiveColumn)
+function normalizeColumnTitle(title: string | null | undefined) {
+  const trimmed = title?.trim()
+  return trimmed ? trimmed.slice(0, 80) : null
+}
+
+function getDefaultColumnId(retroId: string, styleKey: typeof COLUMN_STYLE_KEYS[number]) {
+  return `${retroId}:${styleKey}`
+}
+
+export async function ensureRetrospectiveColumns(retroId: string) {
+  const existing = await getAsync(
+    `SELECT column_id FROM retrospective_columns WHERE retro_id = ? LIMIT 1`,
+    [retroId],
+  )
+  if (existing) return
+
+  const insertColumn = db.prepare(
+    `INSERT OR IGNORE INTO retrospective_columns (column_id, retro_id, title, style_key, position) VALUES (?, ?, ?, ?, ?)`,
+  )
+
+  db.transaction(() => {
+    DEFAULT_RETROSPECTIVE_COLUMNS.forEach((column, index) => {
+      insertColumn.run(getDefaultColumnId(retroId, column.styleKey), retroId, column.title, column.styleKey, index)
+    })
+  })()
+}
+
+function getRandomItem<T>(items: readonly T[]): T {
+  return items[Math.floor(Math.random() * items.length)] ?? items[0]
+}
+
+function getNextColumnStyleKey(position: number, existingStyleKeys: string[]) {
+  if (position < COLUMN_STYLE_KEYS.length) {
+    return COLUMN_STYLE_KEYS[position]
+  }
+
+  const usedCustomColors = new Set(
+    existingStyleKeys
+      .map(styleKey => styleKey.match(/^custom:([^:]+):/)?.[1])
+      .filter((colorKey): colorKey is string => Boolean(colorKey)),
+  )
+  const availableColors = EXTRA_COLUMN_STYLE_COLORS.filter(colorKey => !usedCustomColors.has(colorKey))
+  const colorKey = getRandomItem(availableColors.length > 0 ? availableColors : EXTRA_COLUMN_STYLE_COLORS)
+  const emoji = getRandomItem(POSITIVE_COLUMN_EMOJIS)
+
+  return `custom:${colorKey}:${emoji}`
+}
+
+export async function getRetrospectiveColumns(retroId: string): Promise<RetrospectiveColumnRow[]> {
+  await ensureRetrospectiveColumns(retroId)
+  return allAsync(
+    `SELECT * FROM retrospective_columns WHERE retro_id = ? ORDER BY position ASC, created_at ASC`,
+    [retroId],
+  )
+}
+
+export async function isRetrospectiveColumn(retroId: string, value: string): Promise<boolean> {
+  const column = await getAsync(
+    `SELECT column_id FROM retrospective_columns WHERE retro_id = ? AND column_id = ?`,
+    [retroId, value],
+  )
+  return Boolean(column)
 }
 
 function normalizeCardKind(kind: string | null | undefined): RetrospectiveCardKind {
@@ -153,6 +245,7 @@ export async function createRetrospective(params: {
     `INSERT INTO retrospectives (retro_id, title, creator_participant_id) VALUES (?, ?, ?)`,
     [params.retroId, params.title, params.creatorParticipantId],
   )
+  await ensureRetrospectiveColumns(params.retroId)
 }
 
 export async function getRetrospective(retroId: string): Promise<RetrospectiveRow | undefined> {
@@ -206,6 +299,111 @@ export async function getRetrospectiveParticipantBySocketAndRetro(socketId: stri
 
 export async function getRetrospectiveParticipants(retroId: string): Promise<RetrospectiveParticipantRow[]> {
   return allAsync(`SELECT * FROM retrospective_participants WHERE retro_id = ? ORDER BY joined_at`, [retroId])
+}
+
+export async function addRetrospectiveColumn(retroId: string, columnId: string, title: string) {
+  const normalizedTitle = normalizeColumnTitle(title)
+  if (!normalizedTitle) return null
+
+  const existingColumns = await getRetrospectiveColumns(retroId)
+  const position = Math.max(-1, ...existingColumns.map(column => column.position)) + 1
+  const styleKey = getNextColumnStyleKey(position, existingColumns.map(column => column.style_key))
+
+  await runAsync(
+    `INSERT INTO retrospective_columns (column_id, retro_id, title, style_key, position) VALUES (?, ?, ?, ?, ?)`,
+    [columnId, retroId, normalizedTitle, styleKey, position],
+  )
+  await touchRetrospective(retroId)
+
+  return {
+    columnId,
+    title: normalizedTitle,
+    styleKey,
+  } satisfies RetrospectiveColumnDefinition
+}
+
+export async function updateRetrospectiveColumn(retroId: string, columnId: string, title: string) {
+  const normalizedTitle = normalizeColumnTitle(title)
+  if (!normalizedTitle) return false
+
+  const result = await runAsync(
+    `UPDATE retrospective_columns SET title = ? WHERE retro_id = ? AND column_id = ?`,
+    [normalizedTitle, retroId, columnId],
+  )
+  if ((result.changes ?? 0) < 1) {
+    return false
+  }
+
+  await touchRetrospective(retroId)
+  return true
+}
+
+export async function moveRetrospectiveColumn(retroId: string, columnId: string, targetColumnId: string, position: 'before' | 'after') {
+  if (columnId === targetColumnId) {
+    return false
+  }
+
+  const columnRows = await getRetrospectiveColumns(retroId)
+  const sourceIndex = columnRows.findIndex(column => column.column_id === columnId)
+  const targetIndex = columnRows.findIndex(column => column.column_id === targetColumnId)
+
+  if (sourceIndex < 0 || targetIndex < 0) {
+    return false
+  }
+
+  const reordered = columnRows.slice()
+  const [movedColumn] = reordered.splice(sourceIndex, 1)
+  const adjustedTargetIndex = sourceIndex < targetIndex ? targetIndex - 1 : targetIndex
+  const insertIndex = position === 'before' ? adjustedTargetIndex : adjustedTargetIndex + 1
+
+  reordered.splice(Math.max(0, Math.min(insertIndex, reordered.length)), 0, movedColumn)
+
+  const updatePosition = db.prepare(`UPDATE retrospective_columns SET position = ? WHERE column_id = ? AND retro_id = ?`)
+  db.transaction(() => {
+    reordered.forEach((column, index) => {
+      updatePosition.run(index, column.column_id, retroId)
+    })
+  })()
+
+  await touchRetrospective(retroId)
+  return true
+}
+
+export async function deleteRetrospectiveColumn(retroId: string, columnId: string) {
+  const [columnCountRow, cardRow, columnRow] = await Promise.all([
+    getAsync(`SELECT COUNT(*) AS count FROM retrospective_columns WHERE retro_id = ?`, [retroId]),
+    getAsync(`SELECT COUNT(*) AS count FROM retrospective_cards WHERE retro_id = ? AND column_key = ?`, [retroId, columnId]),
+    getAsync(`SELECT position FROM retrospective_columns WHERE retro_id = ? AND column_id = ?`, [retroId, columnId]),
+  ])
+
+  if (!columnRow) {
+    return { ok: false as const, reason: 'not-found' as const }
+  }
+
+  if ((columnCountRow?.count ?? 0) <= 1) {
+    return { ok: false as const, reason: 'last-column' as const }
+  }
+
+  if ((cardRow?.count ?? 0) > 0) {
+    return { ok: false as const, reason: 'not-empty' as const }
+  }
+
+  const result = await runAsync(
+    `DELETE FROM retrospective_columns WHERE retro_id = ? AND column_id = ?`,
+    [retroId, columnId],
+  )
+  if ((result.changes ?? 0) < 1) {
+    return { ok: false as const, reason: 'not-found' as const }
+  }
+
+  await runAsync(
+    `UPDATE retrospective_columns
+      SET position = position - 1
+      WHERE retro_id = ? AND position > ?`,
+    [retroId, columnRow.position],
+  )
+  await touchRetrospective(retroId)
+  return { ok: true as const }
 }
 
 export async function updateRetrospectiveTimerDuration(retroId: string, durationMs: number) {
@@ -441,6 +639,7 @@ export async function toggleRetrospectiveActionItemStatus(cardId: string, retroI
 export async function buildRetrospectiveState(retroId: string, requesterParticipantId: string): Promise<RetrospectiveState | null> {
   const retrospective = await getRetrospective(retroId)
   if (!retrospective) return null
+  const columnRows = await getRetrospectiveColumns(retroId)
 
   const timer = computeTimerSnapshot(retrospective)
   if (
@@ -460,6 +659,11 @@ export async function buildRetrospectiveState(retroId: string, requesterParticip
     name: row.name,
     isConnected: row.is_connected === 1,
     isModerator: row.is_moderator === 1,
+  }))
+  const columns: RetrospectiveColumnDefinition[] = columnRows.map(row => ({
+    columnId: row.column_id,
+    title: row.title,
+    styleKey: row.style_key,
   }))
 
   const cardRows: RetrospectiveCardRow[] = await allAsync(
@@ -482,14 +686,15 @@ export async function buildRetrospectiveState(retroId: string, requesterParticip
       l.action_item_card_id,
       l.normal_card_id,
       n.column_key,
-      n.body
+      n.body,
+      l.created_at
     FROM retrospective_card_links l
     INNER JOIN retrospective_cards a ON a.card_id = l.action_item_card_id
     INNER JOIN retrospective_cards n ON n.card_id = l.normal_card_id AND n.retro_id = a.retro_id
     WHERE a.retro_id = ?
       AND a.kind = 'action_item'
       AND n.kind = 'normal'
-    ORDER BY n.created_at ASC`,
+    ORDER BY l.created_at ASC, l.rowid ASC`,
     [retroId],
   )
   const linkedCardsByActionId = new Map<string, RetrospectiveLinkedCardSummary[]>()
@@ -521,6 +726,7 @@ export async function buildRetrospectiveState(retroId: string, requesterParticip
       canDelete: isAuthor || isModerator,
       actionStatus: kind === 'action_item' ? normalizeActionStatus(row.action_status) : null,
       ownerName: kind === 'action_item' ? row.owner_name : null,
+      originCardId: kind === 'action_item' ? linkedCards[0]?.cardId ?? null : null,
       linkedCardIds: linkedCards.map(card => card.cardId),
       linkedCards,
       createdAt: row.created_at,
@@ -531,6 +737,7 @@ export async function buildRetrospectiveState(retroId: string, requesterParticip
   return {
     retroId: retrospective.retro_id,
     title: retrospective.title,
+    columns,
     participants,
     cards,
     timer,

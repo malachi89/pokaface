@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
 import { useIdentity } from '@/hooks/useIdentity'
@@ -48,13 +49,13 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-surface flex flex-col items-center justify-center p-4">
-      <Button
-        onClick={() => router.push('/retrospective')}
-        className="absolute left-4 top-4 flex h-28 w-28 flex-col items-center justify-center gap-2 rounded-lg !p-3 text-center shadow-lg shadow-brand/20 sm:h-32 sm:w-32"
+      <Link
+        href="/retrospective"
+        className="absolute left-4 top-4 flex h-28 w-28 flex-col items-center justify-center gap-2 rounded-lg bg-brand p-3 text-center text-white shadow-lg shadow-brand/20 transition-colors hover:bg-brand-hover focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-2 sm:h-32 sm:w-32"
       >
         <RetrospectiveIcon />
         <span className="text-sm font-semibold leading-tight sm:text-base">Retroboards</span>
-      </Button>
+      </Link>
 
       <div className="absolute top-4 right-4">
         <ThemeToggle />

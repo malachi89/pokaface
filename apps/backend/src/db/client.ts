@@ -15,8 +15,8 @@ console.log('Connected to SQLite database')
 db.pragma('busy_timeout = 5000')
 db.pragma('foreign_keys = ON')
 
-export async function runAsync(sql: string, params: any[] = []): Promise<void> {
-  db.prepare(sql).run(...params)
+export async function runAsync(sql: string, params: any[] = []) {
+  return db.prepare(sql).run(...params)
 }
 
 export async function getAsync(sql: string, params: any[] = []): Promise<any> {

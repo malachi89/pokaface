@@ -27,6 +27,7 @@ Do not start local app servers in this workspace (`npm run dev`, `npm run start`
 - **Socket singleton**: `lib/socket.ts` creates one `io()` connection per app lifetime (module-level `let socket`). `closeSocket()` disconnects and resets it to `null` for re-creation.
 - **Room state**: `buildRoomState()` in `db/queries.ts` is the single source of truth. Queries `rooms` + `participants`, computes `VoteResults` only when `phase === 'revealed'`. Called after every mutating operation.
 - **Socket-room membership**: In-memory `Map<string, Set<string>>` in `socket/rooms.ts` tracks active connections; SQLite is authoritative source.
+- **Retroboards**: action items now have a single visible origin card plus arrow links to other cards. The backend exposes `originCardId` on `RetrospectiveCardPublic`, and the frontend uses a pointer-driven arrow handle instead of dragging/cloning the full action item card.
 - **Config** (`apps/backend/src/config.ts`): `PORT=3001`, `DB_PATH=./data/pokaface.db`, `FRONTEND_ORIGIN=http://localhost:3000`, `BCRYPT_ROUNDS=10`, `ROOM_TTL_DAYS=7`. `isDev` is `NODE_ENV !== 'production'`.
 - **Card values** (`packages/shared/src/cards.ts`): union `0 | 1 | 2 | 3 | 5 | 8 | '?' | '☕'`. Moderators cannot vote (checked server-side in `voting.ts:58`).
 - **Moderator auth**: Checks `getParticipantBySocket(socket.id)` and `is_moderator === 1`. No token re-verification after initial join.

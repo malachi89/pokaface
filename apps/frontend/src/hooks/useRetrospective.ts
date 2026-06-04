@@ -51,6 +51,26 @@ export function useRetrospective(retroId: string | null, identity: UserIdentity,
     socket.emit(EVENTS.RETRO_CARD_ADD, { retroId, column, body, showAuthor })
   }, [socket, retroId])
 
+  const addColumn = useCallback((title: string) => {
+    if (!socket || !retroId) return
+    socket.emit(EVENTS.RETRO_COLUMN_ADD, { retroId, title })
+  }, [socket, retroId])
+
+  const updateColumn = useCallback((columnId: string, title: string) => {
+    if (!socket || !retroId) return
+    socket.emit(EVENTS.RETRO_COLUMN_UPDATE, { retroId, columnId, title })
+  }, [socket, retroId])
+
+  const deleteColumn = useCallback((columnId: string) => {
+    if (!socket || !retroId) return
+    socket.emit(EVENTS.RETRO_COLUMN_DELETE, { retroId, columnId })
+  }, [socket, retroId])
+
+  const moveColumn = useCallback((columnId: string, targetColumnId: string, position: 'before' | 'after') => {
+    if (!socket || !retroId) return
+    socket.emit(EVENTS.RETRO_COLUMN_MOVE, { retroId, columnId, targetColumnId, position })
+  }, [socket, retroId])
+
   const editCard = useCallback((cardId: string, body: string, showAuthor: boolean, ownerName?: string | null) => {
     if (!socket || !retroId) return
     socket.emit(EVENTS.RETRO_CARD_EDIT, { retroId, cardId, body, showAuthor, ownerName })
@@ -127,6 +147,10 @@ export function useRetrospective(retroId: string | null, identity: UserIdentity,
   return {
     state,
     addCard,
+    addColumn,
+    updateColumn,
+    deleteColumn,
+    moveColumn,
     editCard,
     deleteCard,
     toggleLike,

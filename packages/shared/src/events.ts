@@ -1,6 +1,7 @@
 import type { CardValue } from './cards'
 import type {
   RetrospectiveColumn,
+  RetrospectiveColumnDefinition,
   RetrospectiveState,
   RoomState,
   VoteResults,
@@ -34,6 +35,10 @@ export const EVENTS = {
   RETRO_STATE: 'retro:state',
   RETRO_UPDATED: 'retro:updated',
   RETRO_CARD_ADD: 'retro:card:add',
+  RETRO_COLUMN_ADD: 'retro:column:add',
+  RETRO_COLUMN_UPDATE: 'retro:column:update',
+  RETRO_COLUMN_DELETE: 'retro:column:delete',
+  RETRO_COLUMN_MOVE: 'retro:column:move',
   RETRO_CARD_EDIT: 'retro:card:edit',
   RETRO_CARD_DELETE: 'retro:card:delete',
   RETRO_CARD_LIKE_TOGGLE: 'retro:card:like:toggle',
@@ -129,6 +134,29 @@ export interface AddRetrospectiveCardPayload {
   showAuthor: boolean
 }
 
+export interface AddRetrospectiveColumnPayload {
+  retroId: string
+  title: string
+}
+
+export interface UpdateRetrospectiveColumnPayload {
+  retroId: string
+  columnId: string
+  title: string
+}
+
+export interface DeleteRetrospectiveColumnPayload {
+  retroId: string
+  columnId: string
+}
+
+export interface MoveRetrospectiveColumnPayload {
+  retroId: string
+  columnId: string
+  targetColumnId: string
+  position: 'before' | 'after'
+}
+
 export interface EditRetrospectiveCardPayload {
   retroId: string
   cardId: string
@@ -189,4 +217,8 @@ export interface RetrospectiveCreatedPayload {
 
 export interface RetrospectiveStatePayload {
   retrospective: RetrospectiveState
+}
+
+export interface RetrospectiveColumnPayload {
+  column: RetrospectiveColumnDefinition
 }

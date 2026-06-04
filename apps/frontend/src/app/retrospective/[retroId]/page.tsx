@@ -1,11 +1,12 @@
 'use client'
 
-import { type RefObject, useEffect, useMemo, useRef, useState } from 'react'
+import { type DragEvent, type PointerEvent, type RefObject, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toPng } from 'html-to-image'
 import type {
   RetrospectiveCardPublic,
+  RetrospectiveColumnDefinition,
   RetrospectiveColumn,
   RetrospectiveState,
   RetrospectiveTimerState,
@@ -19,23 +20,18 @@ import { ThemeToggle } from '@/components/ThemeToggle'
 import { UserIdentityControl } from '@/components/UserIdentityControl'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
 import { ConnectionBadge } from '@/components/room/ConnectionBadge'
 
 const backendUrl = getBackendUrl()
 
-const COLUMNS: Array<{
-  key: RetrospectiveColumn
+const COLUMN_STYLES: Record<string, {
   emoji: string
-  title: string
-  meaning: string
   className: string
   cardShades: string[]
-}> = [
-  {
-    key: 'loved',
+}> = {
+  loved: {
     emoji: '❤️',
-    title: 'What went well',
-    meaning: 'Positive outcomes, practices, and moments to keep.',
     className: 'bg-rose-100/85 border-rose-300/70',
     cardShades: [
       'bg-rose-200/90 border-rose-300/80',
@@ -43,11 +39,8 @@ const COLUMNS: Array<{
       'bg-pink-100 border-pink-300/70',
     ],
   },
-  {
-    key: 'learned',
+  learned: {
     emoji: '💡',
-    title: 'What we learned',
-    meaning: 'Lessons, discoveries, and insights from the sprint.',
     className: 'bg-emerald-100/85 border-emerald-300/70',
     cardShades: [
       'bg-emerald-200/90 border-emerald-300/80',
@@ -55,11 +48,8 @@ const COLUMNS: Array<{
       'bg-teal-100 border-teal-300/70',
     ],
   },
-  {
-    key: 'lacked',
+  lacked: {
     emoji: '🧩',
-    title: 'What could be better',
-    meaning: 'Gaps, friction, and improvements for next time.',
     className: 'bg-amber-100/85 border-amber-300/70',
     cardShades: [
       'bg-amber-200/90 border-amber-300/80',
@@ -67,11 +57,8 @@ const COLUMNS: Array<{
       'bg-yellow-100 border-yellow-300/70',
     ],
   },
-  {
-    key: 'longed',
+  longed: {
     emoji: '✨',
-    title: 'What we want next',
-    meaning: 'Changes, support, and experiments to try next.',
     className: 'bg-sky-100/85 border-sky-300/70',
     cardShades: [
       'bg-sky-200/90 border-sky-300/80',
@@ -79,11 +66,8 @@ const COLUMNS: Array<{
       'bg-cyan-100 border-cyan-300/70',
     ],
   },
-  {
-    key: 'kudos',
+  kudos: {
     emoji: '👏',
-    title: 'Kudos',
-    meaning: 'Recognition and thanks for teammates.',
     className: 'bg-violet-100/85 border-violet-300/70',
     cardShades: [
       'bg-violet-200/90 border-violet-300/80',
@@ -91,7 +75,78 @@ const COLUMNS: Array<{
       'bg-indigo-100 border-indigo-300/70',
     ],
   },
-]
+}
+
+const CUSTOM_COLUMN_STYLES: Record<string, {
+  className: string
+  cardShades: string[]
+}> = {
+  lime: {
+    className: 'bg-lime-100/85 border-lime-300/70',
+    cardShades: ['bg-lime-200/90 border-lime-300/80', 'bg-lime-100 border-lime-300/70', 'bg-green-100 border-green-300/70'],
+  },
+  cyan: {
+    className: 'bg-cyan-100/85 border-cyan-300/70',
+    cardShades: ['bg-cyan-200/90 border-cyan-300/80', 'bg-cyan-100 border-cyan-300/70', 'bg-blue-100 border-blue-300/70'],
+  },
+  orange: {
+    className: 'bg-orange-100/85 border-orange-300/70',
+    cardShades: ['bg-orange-200/90 border-orange-300/80', 'bg-orange-100 border-orange-300/70', 'bg-amber-100 border-amber-300/70'],
+  },
+  blue: {
+    className: 'bg-blue-100/85 border-blue-300/70',
+    cardShades: ['bg-blue-200/90 border-blue-300/80', 'bg-blue-100 border-blue-300/70', 'bg-sky-100 border-sky-300/70'],
+  },
+  green: {
+    className: 'bg-green-100/85 border-green-300/70',
+    cardShades: ['bg-green-200/90 border-green-300/80', 'bg-green-100 border-green-300/70', 'bg-lime-100 border-lime-300/70'],
+  },
+  fuchsia: {
+    className: 'bg-fuchsia-100/85 border-fuchsia-300/70',
+    cardShades: ['bg-fuchsia-200/90 border-fuchsia-300/80', 'bg-fuchsia-100 border-fuchsia-300/70', 'bg-pink-100 border-pink-300/70'],
+  },
+  purple: {
+    className: 'bg-purple-100/85 border-purple-300/70',
+    cardShades: ['bg-purple-200/90 border-purple-300/80', 'bg-purple-100 border-purple-300/70', 'bg-violet-100 border-violet-300/70'],
+  },
+  yellow: {
+    className: 'bg-yellow-100/85 border-yellow-300/70',
+    cardShades: ['bg-yellow-200/90 border-yellow-300/80', 'bg-yellow-100 border-yellow-300/70', 'bg-lime-100 border-lime-300/70'],
+  },
+  teal: {
+    className: 'bg-teal-100/85 border-teal-300/70',
+    cardShades: ['bg-teal-200/90 border-teal-300/80', 'bg-teal-100 border-teal-300/70', 'bg-emerald-100 border-emerald-300/70'],
+  },
+  red: {
+    className: 'bg-red-100/85 border-red-300/70',
+    cardShades: ['bg-red-200/90 border-red-300/80', 'bg-red-100 border-red-300/70', 'bg-orange-100 border-orange-300/70'],
+  },
+  indigo: {
+    className: 'bg-indigo-100/85 border-indigo-300/70',
+    cardShades: ['bg-indigo-200/90 border-indigo-300/80', 'bg-indigo-100 border-indigo-300/70', 'bg-blue-100 border-blue-300/70'],
+  },
+  pink: {
+    className: 'bg-pink-100/85 border-pink-300/70',
+    cardShades: ['bg-pink-200/90 border-pink-300/80', 'bg-pink-100 border-pink-300/70', 'bg-rose-100 border-rose-300/70'],
+  },
+}
+
+function getColumnVisual(styleKey: string) {
+  const customStyleMatch = styleKey.match(/^custom:([^:]+):(.+)$/)
+  if (customStyleMatch) {
+    const [, colorKey, emoji] = customStyleMatch
+    const customStyle = CUSTOM_COLUMN_STYLES[colorKey]
+
+    if (customStyle) {
+      return {
+        emoji: emoji || '✨',
+        ...customStyle,
+      }
+    }
+  }
+
+  return COLUMN_STYLES[styleKey] ?? COLUMN_STYLES.loved
+}
 
 function cardShade(cardId: string, shades: string[]) {
   let hash = 0
@@ -101,6 +156,155 @@ function cardShade(cardId: string, shades: string[]) {
   }
 
   return shades[(hash >>> 0) % shades.length]
+}
+
+function getColumnDropPosition(
+  draggedColumnId: string,
+  targetColumnId: string,
+  columns: RetrospectiveColumnDefinition[],
+) {
+  const sourceIndex = columns.findIndex(column => column.columnId === draggedColumnId)
+  const targetIndex = columns.findIndex(column => column.columnId === targetColumnId)
+
+  if (sourceIndex >= 0 && targetIndex >= 0 && sourceIndex !== targetIndex) {
+    return sourceIndex < targetIndex ? 'after' : 'before'
+  }
+
+  return 'after'
+}
+
+const COLUMN_DRAG_IGNORE_SELECTOR = [
+  'button',
+  'input',
+  'textarea',
+  'select',
+  'option',
+  'label',
+  'a',
+  '[contenteditable="true"]',
+  '[data-column-drag-ignore="true"]',
+].join(',')
+
+function shouldIgnoreColumnDrag(target: EventTarget | null) {
+  return !(target instanceof HTMLElement) || Boolean(target.closest(COLUMN_DRAG_IGNORE_SELECTOR))
+}
+
+type BoardPoint = {
+  x: number
+  y: number
+}
+
+type BoardRect = {
+  left: number
+  top: number
+  width: number
+  height: number
+}
+
+type BoardArrow = {
+  id: string
+  start: BoardPoint
+  end: BoardPoint
+  draft?: boolean
+}
+
+function getRelativeRect(element: HTMLElement, container: HTMLElement): BoardRect {
+  const elementRect = element.getBoundingClientRect()
+  const containerRect = container.getBoundingClientRect()
+
+  return {
+    left: elementRect.left - containerRect.left,
+    top: elementRect.top - containerRect.top,
+    width: elementRect.width,
+    height: elementRect.height,
+  }
+}
+
+function getRectCenter(rect: BoardRect): BoardPoint {
+  return {
+    x: rect.left + rect.width / 2,
+    y: rect.top + rect.height / 2,
+  }
+}
+
+function getEdgePoint(rect: BoardRect, toward: BoardPoint): BoardPoint {
+  const center = getRectCenter(rect)
+  const dx = toward.x - center.x
+  const dy = toward.y - center.y
+
+  if (dx === 0 && dy === 0) {
+    return center
+  }
+
+  const halfWidth = rect.width / 2
+  const halfHeight = rect.height / 2
+  const scaleX = dx === 0 ? Number.POSITIVE_INFINITY : halfWidth / Math.abs(dx)
+  const scaleY = dy === 0 ? Number.POSITIVE_INFINITY : halfHeight / Math.abs(dy)
+  const scale = Math.min(scaleX, scaleY)
+
+  return {
+    x: center.x + dx * scale,
+    y: center.y + dy * scale,
+  }
+}
+
+function getArrowBetweenRects(sourceRect: BoardRect, targetRect: BoardRect): Omit<BoardArrow, 'id'> {
+  const sourceCenter = getRectCenter(sourceRect)
+  const targetCenter = getRectCenter(targetRect)
+
+  return {
+    start: getEdgePoint(sourceRect, targetCenter),
+    end: getEdgePoint(targetRect, sourceCenter),
+  }
+}
+
+function RetrospectiveArrowOverlay({
+  arrows,
+  draftArrow,
+}: {
+  arrows: BoardArrow[]
+  draftArrow: BoardArrow | null
+}) {
+  if (arrows.length === 0 && !draftArrow) return null
+
+  return (
+    <svg aria-hidden="true" className="pointer-events-none absolute inset-0 z-30 h-full w-full overflow-visible">
+      <defs>
+        <marker id="retro-action-arrowhead" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="4" markerHeight="4" orient="auto">
+          <path d="M 0 0 L 10 5 L 0 10 z" className="fill-red-500" />
+        </marker>
+        <marker id="retro-action-arrowhead-draft" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="4" markerHeight="4" orient="auto">
+          <path d="M 0 0 L 10 5 L 0 10 z" className="fill-red-400" />
+        </marker>
+      </defs>
+      {arrows.map(arrow => (
+        <line
+          key={arrow.id}
+          x1={arrow.start.x}
+          y1={arrow.start.y}
+          x2={arrow.end.x}
+          y2={arrow.end.y}
+          className="stroke-red-500/80"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          markerEnd="url(#retro-action-arrowhead)"
+        />
+      ))}
+      {draftArrow && (
+        <line
+          x1={draftArrow.start.x}
+          y1={draftArrow.start.y}
+          x2={draftArrow.end.x}
+          y2={draftArrow.end.y}
+          className="stroke-red-400/80"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeDasharray="7 6"
+          markerEnd="url(#retro-action-arrowhead-draft)"
+        />
+      )}
+    </svg>
+  )
 }
 
 function CopyRetroLinkButton({ retroId }: { retroId: string }) {
@@ -404,15 +608,150 @@ function RetroTimerPanel({
             disabled={isRunning}
             aria-label="Reset timer"
             title="Reset timer"
-            className={`${iconButtonClass} h-8 w-8`}
+            className={`${iconButtonClass} h-7 w-7`}
           >
-            <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4.5 w-4.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M3 12a9 9 0 1 0 3-6.7" />
               <path d="M3 3v6h6" />
             </svg>
           </button>
         </>
       )}
+    </section>
+  )
+}
+
+function ColumnTitleEditor({
+  column,
+  isModerator,
+  canDelete,
+  onUpdate,
+  onDelete,
+}: {
+  column: RetrospectiveColumnDefinition
+  isModerator: boolean
+  canDelete: boolean
+  onUpdate: (columnId: string, title: string) => void
+  onDelete: (columnId: string) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [title, setTitle] = useState(column.title)
+
+  useEffect(() => {
+    setTitle(column.title)
+  }, [column.columnId, column.title])
+
+  const save = () => {
+    const nextTitle = title.trim()
+    if (!nextTitle || nextTitle === column.title) {
+      setEditing(false)
+      setTitle(column.title)
+      return
+    }
+
+    onUpdate(column.columnId, nextTitle)
+    setEditing(false)
+  }
+
+  if (!isModerator) {
+    return (
+      <div data-column-drag-ignore="true">
+        <h2 className="flex min-h-10 items-start gap-2 text-xl font-semibold text-slate-900">{column.title}</h2>
+      </div>
+    )
+  }
+
+  if (editing) {
+    return (
+      <div data-column-drag-ignore="true" className="space-y-2">
+        <Input value={title} onChange={setTitle} maxLength={80} placeholder="Column title" />
+        <div className="flex gap-2">
+          <Button type="button" onClick={save} size="sm" disabled={!title.trim()}>
+            Save
+          </Button>
+          <Button
+            type="button"
+            onClick={() => {
+              setEditing(false)
+              setTitle(column.title)
+            }}
+            variant="secondary"
+            size="sm"
+          >
+            Cancel
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div data-column-drag-ignore="true" className="flex items-start justify-between gap-3">
+      <div className="flex min-w-0 flex-1 items-start gap-2">
+        <h2 className="min-h-10 flex-1 break-words text-xl font-semibold text-slate-900">{column.title}</h2>
+      </div>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          className="text-xs font-medium text-slate-700 transition-opacity hover:opacity-80"
+        >
+          Edit
+        </button>
+        {canDelete && (
+          <button
+            type="button"
+            onClick={() => onDelete(column.columnId)}
+            className="text-xs font-medium text-red-600 transition-colors hover:text-red-700"
+          >
+            Delete
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function ColumnCreator({ onAdd }: { onAdd: (title: string) => void }) {
+  const [expanded, setExpanded] = useState(false)
+  const [title, setTitle] = useState('')
+
+  const submit = () => {
+    const nextTitle = title.trim()
+    if (!nextTitle) return
+    onAdd(nextTitle)
+    setTitle('')
+    setExpanded(false)
+  }
+
+  const close = () => {
+    setTitle('')
+    setExpanded(false)
+  }
+
+  if (!expanded) {
+    return (
+      <div className="flex justify-start">
+        <Button type="button" onClick={() => setExpanded(true)} variant="secondary" size="sm">
+          Add Column
+        </Button>
+      </div>
+    )
+  }
+
+  return (
+    <section className="max-w-md rounded-xl border border-dashed border-slate-400/70 bg-white/65 p-4 shadow-sm backdrop-blur-sm">
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <Input value={title} onChange={setTitle} maxLength={80} placeholder="New column title" />
+        <div className="flex gap-2">
+          <Button type="button" onClick={submit} disabled={!title.trim()} size="sm">
+            Add
+          </Button>
+          <Button type="button" onClick={close} variant="secondary" size="sm">
+            Cancel
+          </Button>
+        </div>
+      </div>
     </section>
   )
 }
@@ -450,7 +789,7 @@ function CardComposer({
       <button
         type="button"
         onClick={() => setExpanded(true)}
-        className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-500/80 bg-white/70 px-3 py-2 text-sm font-medium text-slate-900 shadow-sm backdrop-blur-sm transition-colors hover:border-slate-700 hover:bg-white dark:border-slate-600 dark:bg-white/75 dark:text-slate-900 dark:hover:border-slate-800 dark:hover:bg-white"
+        className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-500/80 bg-white/70 px-3 py-2 text-sm font-medium text-slate-900 shadow-sm backdrop-blur-sm transition-colors hover:border-slate-600 hover:bg-slate-100 hover:text-slate-950 dark:border-slate-600 dark:bg-white/75 dark:text-slate-900 dark:hover:border-slate-800 dark:hover:bg-white"
       >
         <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
           <path d="M12 5v14M5 12h14" />
@@ -461,7 +800,7 @@ function CardComposer({
   }
 
   return (
-    <form onSubmit={e => { e.preventDefault(); handleSubmit() }} className="space-y-3 rounded-lg border border-white/70 bg-white/70 p-3 shadow-sm backdrop-blur-sm dark:border-white/80 dark:bg-white/75">
+    <form onSubmit={e => { e.preventDefault(); handleSubmit() }} data-column-drag-ignore="true" className="space-y-3 rounded-lg border border-white/70 bg-white/70 p-3 shadow-sm backdrop-blur-sm dark:border-white/80 dark:bg-white/75">
       <div className="flex items-center justify-between gap-2">
         <span className="text-sm font-medium text-slate-800">Add a card</span>
         <button
@@ -540,7 +879,7 @@ function ActionItemComposer({
   }
 
   return (
-    <form onSubmit={e => { e.preventDefault(); handleSubmit() }} className="space-y-3 rounded border border-red-300/80 bg-red-100 p-3 shadow-sm">
+    <form onSubmit={e => { e.preventDefault(); handleSubmit() }} data-column-drag-ignore="true" className="space-y-3 rounded border border-red-300/80 bg-red-100 p-3 shadow-sm">
       <div className="flex items-center justify-between gap-2">
         <span className="inline-flex items-center rounded-full bg-red-600 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
           Action item
@@ -588,16 +927,16 @@ function ActionItemComposer({
 
 function ActionItemCard({
   card,
+  actionItemRef,
   onEdit,
   onDelete,
-  onDragStart,
-  onDragEnd,
+  onStartConnection,
 }: {
   card: RetrospectiveCardPublic
+  actionItemRef: (element: HTMLElement | null) => void
   onEdit: (cardId: string, body: string, showAuthor: boolean, ownerName?: string | null) => void
   onDelete: (cardId: string) => void
-  onDragStart: (cardId: string) => void
-  onDragEnd: () => void
+  onStartConnection: (cardId: string, event: PointerEvent<HTMLButtonElement>) => void
 }) {
   const [editing, setEditing] = useState(false)
   const [body, setBody] = useState(card.body)
@@ -611,18 +950,13 @@ function ActionItemCard({
 
   return (
     <article
-      draggable={!editing}
-      onDragStart={event => {
-        event.dataTransfer.effectAllowed = 'copy'
-        event.dataTransfer.setData('text/plain', card.cardId)
-        onDragStart(card.cardId)
-      }}
-      onDragEnd={onDragEnd}
-      className="cursor-grab rounded border border-red-300/80 bg-red-100 p-3 shadow-sm active:cursor-grabbing"
-      title="Drag to copy this action item onto another card"
+      ref={actionItemRef}
+      data-retro-action-item-id={card.cardId}
+      data-column-drag-ignore="true"
+      className="rounded border border-red-300/80 bg-red-100 p-3 shadow-sm"
     >
       {editing ? (
-        <form onSubmit={e => { e.preventDefault(); save() }} className="space-y-3">
+        <form onSubmit={e => { e.preventDefault(); save() }} data-column-drag-ignore="true" className="space-y-3">
           <textarea
             value={body}
             onChange={e => setBody(e.target.value)}
@@ -649,11 +983,24 @@ function ActionItemCard({
       ) : (
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-2">
-            <span className="inline-flex items-center rounded-full bg-red-600 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+            <span data-column-drag-ignore="true" className="inline-flex items-center rounded-full bg-red-600 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
               Action item
             </span>
+            <button
+              type="button"
+              onPointerDown={event => onStartConnection(card.cardId, event)}
+              aria-label="Connect action item to another card"
+              title="Connect to another card"
+              className="inline-flex h-7 w-7 shrink-0 touch-none items-center justify-center rounded-full border border-red-400/80 bg-white/80 text-red-700 transition-colors hover:bg-red-200 hover:text-red-900"
+              data-column-drag-ignore="true"
+            >
+              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 12h14" />
+                <path d="m13 6 6 6-6 6" />
+              </svg>
+            </button>
           </div>
-          <p className="whitespace-pre-wrap break-words text-sm text-slate-900">
+          <p data-column-drag-ignore="true" className="whitespace-pre-wrap break-words text-sm text-slate-900">
             {card.body}
           </p>
           <div className="flex items-center justify-end gap-2">
@@ -669,7 +1016,7 @@ function ActionItemCard({
             )}
           </div>
           {card.authorName && (
-            <div className="text-xs text-slate-700 break-words">
+            <div data-column-drag-ignore="true" className="text-xs text-slate-700 break-words">
               {card.authorName}
             </div>
           )}
@@ -683,40 +1030,31 @@ function RetroCard({
   card,
   colorClassName,
   actionItems,
-  draggedActionItemId,
+  isActiveLinkTarget,
+  normalCardRef,
+  getActionItemRef,
   onAddActionItem,
   onEdit,
   onDelete,
   onToggleLike,
-  onDragActionItemStart,
-  onDragActionItemEnd,
-  onLinkActionItem,
+  onStartActionItemConnection,
 }: {
   card: RetrospectiveCardPublic
   colorClassName: string
   actionItems: RetrospectiveCardPublic[]
-  draggedActionItemId: string | null
+  isActiveLinkTarget: boolean
+  normalCardRef: (element: HTMLElement | null) => void
+  getActionItemRef: (cardId: string) => (element: HTMLElement | null) => void
   onAddActionItem: (body: string, showAuthor: boolean, ownerName: string | null, linkedCardIds: string[]) => void
   onEdit: (cardId: string, body: string, showAuthor: boolean, ownerName?: string | null) => void
   onDelete: (cardId: string) => void
   onToggleLike: (cardId: string) => void
-  onDragActionItemStart: (cardId: string) => void
-  onDragActionItemEnd: () => void
-  onLinkActionItem: (actionItemCardId: string, normalCardId: string) => void
+  onStartActionItemConnection: (cardId: string, event: PointerEvent<HTMLButtonElement>) => void
 }) {
   const [editing, setEditing] = useState(false)
   const [body, setBody] = useState(card.body)
   const [showAuthor, setShowAuthor] = useState(card.showAuthor)
-  const [dropActive, setDropActive] = useState(false)
   const [actionItemComposerOpen, setActionItemComposerOpen] = useState(false)
-  const alreadyLinkedDraggedItem = draggedActionItemId
-    ? actionItems.some(actionItem => actionItem.cardId === draggedActionItemId)
-    : false
-  const canDropActionItem = Boolean(draggedActionItemId && !alreadyLinkedDraggedItem)
-
-  useEffect(() => {
-    if (!draggedActionItemId) setDropActive(false)
-  }, [draggedActionItemId])
 
   const save = () => {
     if (!body.trim()) return
@@ -726,28 +1064,12 @@ function RetroCard({
 
   return (
     <article
-      onDragEnter={() => {
-        if (draggedActionItemId) setDropActive(true)
-      }}
-      onDragOver={event => {
-        if (!draggedActionItemId) return
-        event.preventDefault()
-        event.dataTransfer.dropEffect = canDropActionItem ? 'copy' : 'none'
-      }}
-      onDragLeave={() => setDropActive(false)}
-      onDrop={event => {
-        event.preventDefault()
-        setDropActive(false)
-        if (!draggedActionItemId) return
-        const actionItemId = event.dataTransfer.getData('text/plain') || draggedActionItemId
-        if (actionItemId && !actionItems.some(actionItem => actionItem.cardId === actionItemId)) {
-          onLinkActionItem(actionItemId, card.cardId)
-        }
-      }}
-      className={`rounded border p-3 space-y-3 transition-shadow ${dropActive && canDropActionItem ? 'ring-2 ring-brand ring-offset-2 ring-offset-transparent' : ''} ${colorClassName}`}
+      ref={normalCardRef}
+      data-retro-normal-card-id={card.cardId}
+      className={`rounded border p-3 space-y-3 transition-shadow ${isActiveLinkTarget ? 'ring-2 ring-brand ring-offset-2 ring-offset-transparent' : ''} ${colorClassName}`}
     >
       {editing ? (
-        <form onSubmit={e => { e.preventDefault(); save() }} className="space-y-3">
+        <form onSubmit={e => { e.preventDefault(); save() }} data-column-drag-ignore="true" className="space-y-3">
           <textarea
             value={body}
             onChange={e => setBody(e.target.value)}
@@ -773,7 +1095,7 @@ function RetroCard({
         </form>
       ) : (
         <>
-          <p className="text-sm text-slate-900 whitespace-pre-wrap break-words">{card.body}</p>
+          <p data-column-drag-ignore="true" className="text-sm text-slate-900 whitespace-pre-wrap break-words">{card.body}</p>
           <div className="space-y-2">
           <div className="flex items-center justify-end gap-2">
             <button
@@ -811,7 +1133,7 @@ function RetroCard({
               )}
             </div>
           {card.authorName && (
-            <div className="text-xs text-slate-700 break-words">
+            <div data-column-drag-ignore="true" className="text-xs text-slate-700 break-words">
               {card.authorName}
             </div>
           )}
@@ -829,10 +1151,10 @@ function RetroCard({
                 <ActionItemCard
                   key={actionItem.cardId}
                   card={actionItem}
+                  actionItemRef={getActionItemRef(actionItem.cardId)}
                   onEdit={onEdit}
                   onDelete={onDelete}
-                  onDragStart={onDragActionItemStart}
-                  onDragEnd={onDragActionItemEnd}
+                  onStartConnection={onStartActionItemConnection}
                 />
               ))}
             </div>
@@ -904,12 +1226,12 @@ function RetrospectiveEvidenceExport({
   retrospective,
   title,
   exportedAt,
-  actionItemsByNormalCardId,
+  actionItemsByOriginCardId,
 }: {
   retrospective: RetrospectiveState
   title: string
   exportedAt: Date
-  actionItemsByNormalCardId: Map<string, RetrospectiveCardPublic[]>
+  actionItemsByOriginCardId: Map<string, RetrospectiveCardPublic[]>
 }) {
   const displayedRemainingMs = getDisplayedRemainingMs(retrospective.timer, exportedAt.getTime())
   const timerStatus = displayedRemainingMs <= 0
@@ -945,18 +1267,21 @@ function RetrospectiveEvidenceExport({
         </div>
       </section>
 
-      <main className="grid grid-cols-5 gap-4">
-        {COLUMNS.map(column => {
-          const cards = retrospective.cards.filter(card => card.kind === 'normal' && card.column === column.key)
+      <main
+        className="grid gap-4"
+        style={{ gridTemplateColumns: `repeat(${Math.max(retrospective.columns.length, 1)}, minmax(0, 1fr))` }}
+      >
+        {retrospective.columns.map(column => {
+          const visual = getColumnVisual(column.styleKey)
+          const cards = retrospective.cards.filter(card => card.kind === 'normal' && card.column === column.columnId)
 
           return (
-            <section key={column.key} className={`flex min-h-[520px] flex-col gap-3 rounded border p-4 ${column.className}`}>
+            <section key={column.columnId} className={`flex min-h-[520px] flex-col gap-3 rounded border p-4 ${visual.className}`}>
               <div className="min-h-24">
                 <h2 className="flex min-h-10 items-start gap-2 text-xl font-semibold text-slate-900">
-                  <span aria-hidden="true">{column.emoji}</span>
+                  <span aria-hidden="true">{visual.emoji}</span>
                   {column.title}
                 </h2>
-                <p className="mt-0.5 text-sm leading-5 text-slate-700">{column.meaning}</p>
               </div>
               <div className="space-y-3">
                 {cards.length > 0 ? (
@@ -964,8 +1289,8 @@ function RetrospectiveEvidenceExport({
                     <EvidenceRetroCard
                       key={card.cardId}
                       card={card}
-                      colorClassName={cardShade(card.cardId, column.cardShades)}
-                      actionItems={actionItemsByNormalCardId.get(card.cardId) ?? []}
+                      colorClassName={cardShade(card.cardId, visual.cardShades)}
+                      actionItems={actionItemsByOriginCardId.get(card.cardId) ?? []}
                     />
                   ))
                 ) : (
@@ -986,30 +1311,229 @@ export default function RetrospectiveBoardPage({ params }: { params: { retroId: 
   const router = useRouter()
   const { identity, setName, synced } = useIdentity()
   const { socket, connected, reconnecting } = useSocket(backendUrl)
-  const { state, addCard, editCard, deleteCard, toggleLike, addActionItem, linkActionItem, updateTimer, startTimer, pauseTimer, resetTimer } = useRetrospective(
-    params.retroId,
-    identity,
-    socket,
-    connected,
-  )
-  const [draggedActionItemId, setDraggedActionItemId] = useState<string | null>(null)
+  const {
+    state,
+    addCard,
+    addColumn,
+    updateColumn,
+    deleteColumn,
+    moveColumn,
+    editCard,
+    deleteCard,
+    toggleLike,
+    addActionItem,
+    linkActionItem,
+    updateTimer,
+    startTimer,
+    pauseTimer,
+    resetTimer,
+  } = useRetrospective(params.retroId, identity, socket, connected)
+  const [connectingActionItemId, setConnectingActionItemId] = useState<string | null>(null)
+  const [activeLinkTargetCardId, setActiveLinkTargetCardId] = useState<string | null>(null)
+  const [connectionArrows, setConnectionArrows] = useState<BoardArrow[]>([])
+  const [draftArrow, setDraftArrow] = useState<BoardArrow | null>(null)
+  const [draggedColumnId, setDraggedColumnId] = useState<string | null>(null)
+  const [columnDropPreview, setColumnDropPreview] = useState<{ targetColumnId: string; position: 'before' | 'after' } | null>(null)
   const [exportedAt, setExportedAt] = useState(() => new Date())
+  const boardRef = useRef<HTMLDivElement>(null)
   const exportRef = useRef<HTMLDivElement>(null)
+  const normalCardElementsRef = useRef(new Map<string, HTMLElement>())
+  const actionItemElementsRef = useRef(new Map<string, HTMLElement>())
   const allCards = useMemo(() => state.retrospective?.cards ?? [], [state.retrospective?.cards])
-  const actionItemsByNormalCardId = useMemo(() => {
-    const actionItems = allCards.filter(card => card.kind === 'action_item')
-    const actionMap = new Map<string, RetrospectiveCardPublic[]>()
-
-    for (const actionItem of actionItems) {
-      for (const linkedCardId of actionItem.linkedCardIds) {
-        const existing = actionMap.get(linkedCardId) ?? []
-        existing.push(actionItem)
-        actionMap.set(linkedCardId, existing)
+  const actionItems = useMemo(() => allCards.filter(card => card.kind === 'action_item'), [allCards])
+  const normalCardsById = useMemo(() => {
+    const normalCards = new Map<string, RetrospectiveCardPublic>()
+    for (const card of allCards) {
+      if (card.kind === 'normal') {
+        normalCards.set(card.cardId, card)
       }
     }
 
-    return actionMap
+    return normalCards
   }, [allCards])
+  const actionItemsById = useMemo(() => {
+    const actionMap = new Map<string, RetrospectiveCardPublic>()
+    for (const actionItem of actionItems) {
+      actionMap.set(actionItem.cardId, actionItem)
+    }
+
+    return actionMap
+  }, [actionItems])
+  const actionItemArrowLinks = useMemo(() => {
+    return actionItems.flatMap(actionItem => {
+      const originCardId = actionItem.originCardId ?? actionItem.linkedCardIds[0] ?? null
+      if (!originCardId) return []
+
+      return actionItem.linkedCardIds
+        .filter(linkedCardId => linkedCardId !== originCardId)
+        .map(linkedCardId => ({
+          actionItemId: actionItem.cardId,
+          normalCardId: linkedCardId,
+        }))
+    })
+  }, [actionItems])
+  const actionItemsByOriginCardId = useMemo(() => {
+    const actionMap = new Map<string, RetrospectiveCardPublic[]>()
+
+    for (const actionItem of actionItems) {
+      const originCardId = actionItem.originCardId ?? actionItem.linkedCardIds[0] ?? null
+      if (!originCardId) continue
+
+      const existing = actionMap.get(originCardId) ?? []
+      existing.push(actionItem)
+      actionMap.set(originCardId, existing)
+    }
+
+    return actionMap
+  }, [actionItems])
+  const getNormalCardRef = (cardId: string) => (element: HTMLElement | null) => {
+    if (element) {
+      normalCardElementsRef.current.set(cardId, element)
+    } else {
+      normalCardElementsRef.current.delete(cardId)
+    }
+  }
+  const getActionItemRef = (cardId: string) => (element: HTMLElement | null) => {
+    if (element) {
+      actionItemElementsRef.current.set(cardId, element)
+    } else {
+      actionItemElementsRef.current.delete(cardId)
+    }
+  }
+  const getBoardPoint = (clientX: number, clientY: number): BoardPoint | null => {
+    const board = boardRef.current
+    if (!board) return null
+
+    const rect = board.getBoundingClientRect()
+    return {
+      x: clientX - rect.left,
+      y: clientY - rect.top,
+    }
+  }
+  const measureDraftArrow = (actionItemId: string, clientX: number, clientY: number) => {
+    const board = boardRef.current
+    const actionItemElement = actionItemElementsRef.current.get(actionItemId)
+    const pointer = getBoardPoint(clientX, clientY)
+    if (!board || !actionItemElement || !pointer) return null
+
+    const sourceRect = getRelativeRect(actionItemElement, board)
+    return {
+      id: 'draft-action-item-link',
+      start: getEdgePoint(sourceRect, pointer),
+      end: pointer,
+      draft: true,
+    } satisfies BoardArrow
+  }
+  const getValidConnectionTarget = (actionItemId: string, element: Element | null) => {
+    const actionItem = actionItemsById.get(actionItemId)
+    const cardElement = element?.closest('[data-retro-normal-card-id]')
+    if (!actionItem || !(cardElement instanceof HTMLElement)) return null
+
+    const normalCardId = cardElement.dataset.retroNormalCardId
+    if (!normalCardId || !normalCardsById.has(normalCardId) || actionItem.linkedCardIds.includes(normalCardId)) {
+      return null
+    }
+
+    return normalCardId
+  }
+  const handleStartActionItemConnection = (actionItemId: string, event: PointerEvent<HTMLButtonElement>) => {
+    if (event.button !== 0) return
+
+    event.preventDefault()
+    event.stopPropagation()
+    setDraggedColumnId(null)
+    setColumnDropPreview(null)
+    setConnectingActionItemId(actionItemId)
+    setDraftArrow(measureDraftArrow(actionItemId, event.clientX, event.clientY))
+  }
+
+  useEffect(() => {
+    const measureArrows = () => {
+      const board = boardRef.current
+      if (!board) {
+        setConnectionArrows([])
+        return
+      }
+
+      const nextArrows = actionItemArrowLinks.flatMap(link => {
+        const actionItemElement = actionItemElementsRef.current.get(link.actionItemId)
+        const normalCardElement = normalCardElementsRef.current.get(link.normalCardId)
+        if (!actionItemElement || !normalCardElement) return []
+
+        const measuredArrow = getArrowBetweenRects(
+          getRelativeRect(actionItemElement, board),
+          getRelativeRect(normalCardElement, board),
+        )
+
+        return [{
+          id: `${link.actionItemId}:${link.normalCardId}`,
+          ...measuredArrow,
+        }]
+      })
+
+      setConnectionArrows(nextArrows)
+    }
+
+    measureArrows()
+
+    const resizeObserver = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measureArrows) : null
+    if (resizeObserver) {
+      const board = boardRef.current
+      if (board) resizeObserver.observe(board)
+      for (const element of normalCardElementsRef.current.values()) {
+        resizeObserver.observe(element)
+      }
+      for (const element of actionItemElementsRef.current.values()) {
+        resizeObserver.observe(element)
+      }
+    }
+
+    window.addEventListener('resize', measureArrows)
+    window.addEventListener('scroll', measureArrows, true)
+
+    return () => {
+      resizeObserver?.disconnect()
+      window.removeEventListener('resize', measureArrows)
+      window.removeEventListener('scroll', measureArrows, true)
+    }
+  }, [actionItemArrowLinks])
+
+  useEffect(() => {
+    if (!connectingActionItemId) return
+
+    const handlePointerMove = (event: globalThis.PointerEvent) => {
+      event.preventDefault()
+      setDraftArrow(measureDraftArrow(connectingActionItemId, event.clientX, event.clientY))
+      setActiveLinkTargetCardId(getValidConnectionTarget(
+        connectingActionItemId,
+        document.elementFromPoint(event.clientX, event.clientY),
+      ))
+    }
+    const handlePointerUp = (event: globalThis.PointerEvent) => {
+      const targetCardId = getValidConnectionTarget(
+        connectingActionItemId,
+        document.elementFromPoint(event.clientX, event.clientY),
+      )
+
+      if (targetCardId) {
+        linkActionItem(connectingActionItemId, targetCardId)
+      }
+
+      setConnectingActionItemId(null)
+      setActiveLinkTargetCardId(null)
+      setDraftArrow(null)
+    }
+
+    window.addEventListener('pointermove', handlePointerMove, { passive: false })
+    window.addEventListener('pointerup', handlePointerUp)
+    window.addEventListener('pointercancel', handlePointerUp)
+
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove)
+      window.removeEventListener('pointerup', handlePointerUp)
+      window.removeEventListener('pointercancel', handlePointerUp)
+    }
+  }, [connectingActionItemId, actionItemsById, normalCardsById, linkActionItem])
 
   if (synced && !identity.name) {
     return (
@@ -1058,6 +1582,28 @@ export default function RetrospectiveBoardPage({ params }: { params: { retroId: 
   }
 
   const title = state.retrospective.title || 'Sprint Retrospective'
+  const columns = state.retrospective.columns
+  const handleColumnDragOver = (event: DragEvent<HTMLElement>, targetColumnId: string) => {
+    if (!draggedColumnId || draggedColumnId === targetColumnId) return
+    event.preventDefault()
+    setColumnDropPreview({
+      targetColumnId,
+      position: getColumnDropPosition(draggedColumnId, targetColumnId, columns),
+    })
+  }
+  const handleColumnDrop = (event: DragEvent<HTMLElement>, targetColumnId: string) => {
+    if (!draggedColumnId || draggedColumnId === targetColumnId) {
+      setDraggedColumnId(null)
+      setColumnDropPreview(null)
+      return
+    }
+
+    event.preventDefault()
+    const position = getColumnDropPosition(draggedColumnId, targetColumnId, columns)
+    moveColumn(draggedColumnId, targetColumnId, position)
+    setDraggedColumnId(null)
+    setColumnDropPreview(null)
+  }
 
   return (
     <div className="min-h-screen bg-surface p-4 md:p-8">
@@ -1068,7 +1614,7 @@ export default function RetrospectiveBoardPage({ params }: { params: { retroId: 
             retrospective={state.retrospective}
             title={title}
             exportedAt={exportedAt}
-            actionItemsByNormalCardId={actionItemsByNormalCardId}
+            actionItemsByOriginCardId={actionItemsByOriginCardId}
           />
         </div>
       </div>
@@ -1125,41 +1671,101 @@ export default function RetrospectiveBoardPage({ params }: { params: { retroId: 
           ))}
         </section>
 
-        <main className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
-          {COLUMNS.map(column => {
-            const cards = state.retrospective!.cards.filter(card => card.kind === 'normal' && card.column === column.key)
-            return (
-              <section key={column.key} className={`border rounded p-4 flex flex-col gap-3 min-h-[520px] ${column.className}`}>
-                <div className="flex min-h-24 flex-col">
-                  <h2 className="flex min-h-10 items-start gap-2 text-xl font-semibold text-slate-900">
-                    <span aria-hidden="true">{column.emoji}</span>
-                    {column.title}
-                  </h2>
-                  <p className="mt-0.5 text-sm text-slate-700">{column.meaning}</p>
-                </div>
-                <CardComposer column={column.key} onAdd={addCard} />
-                <div className="space-y-3">
-                  {cards.map(card => (
-                    <RetroCard
-                      key={card.cardId}
-                      card={card}
-                      colorClassName={cardShade(card.cardId, column.cardShades)}
-                      actionItems={actionItemsByNormalCardId.get(card.cardId) ?? []}
-                      draggedActionItemId={draggedActionItemId}
-                      onAddActionItem={addActionItem}
-                      onEdit={editCard}
-                      onDelete={deleteCard}
-                      onToggleLike={toggleLike}
-                      onDragActionItemStart={setDraggedActionItemId}
-                      onDragActionItemEnd={() => setDraggedActionItemId(null)}
-                      onLinkActionItem={linkActionItem}
-                    />
-                  ))}
-                </div>
-              </section>
-            )
-          })}
-        </main>
+        {state.isModerator && <ColumnCreator onAdd={addColumn} />}
+
+        <div ref={boardRef} className="relative">
+          <RetrospectiveArrowOverlay arrows={connectionArrows} draftArrow={draftArrow} />
+          <main
+            className="grid grid-cols-1 gap-4 md:grid-cols-2"
+            style={{ gridTemplateColumns: columns.length >= 3 ? `repeat(${columns.length}, minmax(0, 1fr))` : undefined }}
+          >
+            {columns.map(column => {
+              const visual = getColumnVisual(column.styleKey)
+              const cards = state.retrospective!.cards.filter(card => card.kind === 'normal' && card.column === column.columnId)
+              const isDraggingColumn = draggedColumnId === column.columnId
+              const isDropTarget = columnDropPreview?.targetColumnId === column.columnId
+              const dropIndicatorClass = isDropTarget
+                ? columnDropPreview?.position === 'before'
+                  ? 'ring-2 ring-inset ring-sky-500/80'
+                  : 'ring-2 ring-inset ring-sky-500/80 shadow-sky-200/40'
+                : ''
+              return (
+                <section
+                  key={column.columnId}
+                  draggable={state.isModerator}
+                  onDragStartCapture={event => {
+                    if (!state.isModerator || shouldIgnoreColumnDrag(event.target)) {
+                      event.preventDefault()
+                      event.stopPropagation()
+                    }
+                  }}
+                  onDragStart={event => {
+                    if (!state.isModerator || shouldIgnoreColumnDrag(event.target)) {
+                      event.preventDefault()
+                      return
+                    }
+
+                    event.dataTransfer.effectAllowed = 'move'
+                    event.dataTransfer.setData('text/plain', column.columnId)
+                    setConnectingActionItemId(null)
+                    setActiveLinkTargetCardId(null)
+                    setDraftArrow(null)
+                    setDraggedColumnId(column.columnId)
+                    setColumnDropPreview(null)
+                  }}
+                  onDragEnd={() => {
+                    setDraggedColumnId(null)
+                    setColumnDropPreview(null)
+                  }}
+                  onDragOver={event => handleColumnDragOver(event, column.columnId)}
+                  onDrop={event => handleColumnDrop(event, column.columnId)}
+                  className={`border rounded p-4 flex flex-col gap-2 min-h-[520px] transition-shadow ${visual.className} ${dropIndicatorClass} ${
+                    isDraggingColumn ? 'cursor-grabbing opacity-70 scale-[0.99]' : state.isModerator ? 'cursor-grab' : ''
+                  }`}
+                >
+                  <div className="flex min-h-14 flex-col">
+                    <div className="flex items-start gap-2">
+                      <span aria-hidden="true" className="pt-1 text-xl">{visual.emoji}</span>
+                      <div className="min-w-0 flex-1">
+                        <ColumnTitleEditor
+                          column={column}
+                          isModerator={state.isModerator}
+                          canDelete={columns.length > 1}
+                          onUpdate={updateColumn}
+                          onDelete={deleteColumn}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <CardComposer column={column.columnId} onAdd={addCard} />
+                  <div className="space-y-3">
+                    {cards.map(card => (
+                      <RetroCard
+                        key={card.cardId}
+                        card={card}
+                        colorClassName={cardShade(card.cardId, visual.cardShades)}
+                        actionItems={actionItemsByOriginCardId.get(card.cardId) ?? []}
+                        isActiveLinkTarget={activeLinkTargetCardId === card.cardId}
+                        normalCardRef={getNormalCardRef(card.cardId)}
+                        getActionItemRef={getActionItemRef}
+                        onAddActionItem={addActionItem}
+                        onEdit={editCard}
+                        onDelete={deleteCard}
+                        onToggleLike={toggleLike}
+                        onStartActionItemConnection={handleStartActionItemConnection}
+                      />
+                    ))}
+                    {cards.length === 0 && (
+                      <div className="rounded border border-dashed border-slate-400/70 bg-white/45 px-3 py-6 text-center text-sm text-slate-600">
+                        No cards yet
+                      </div>
+                    )}
+                  </div>
+                </section>
+              )
+            })}
+          </main>
+        </div>
       </div>
     </div>
   )

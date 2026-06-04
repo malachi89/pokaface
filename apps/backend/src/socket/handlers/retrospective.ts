@@ -5,7 +5,9 @@ import { EVENTS } from '@pokaface/shared'
 import type {
   AddRetrospectiveActionItemPayload,
   AddRetrospectiveCardPayload,
+  AddRetrospectiveColumnPayload,
   CreateRetrospectivePayload,
+  DeleteRetrospectiveColumnPayload,
   DeleteRetrospectiveCardPayload,
   EditRetrospectiveCardPayload,
   JoinRetrospectivePayload,
@@ -15,13 +17,17 @@ import type {
   StartRetrospectiveTimerPayload,
   ToggleRetrospectiveActionItemStatusPayload,
   ToggleRetrospectiveCardLikePayload,
+  MoveRetrospectiveColumnPayload,
+  UpdateRetrospectiveColumnPayload,
   UpdateRetrospectiveTimerPayload,
 } from '@pokaface/shared'
 import {
   addRetrospectiveActionItem,
   addRetrospectiveCard,
+  addRetrospectiveColumn,
   buildRetrospectiveState,
   createRetrospective,
+  deleteRetrospectiveColumn,
   deleteRetrospectiveCard,
   disconnectRetrospectiveParticipants,
   editRetrospectiveCard,
@@ -32,11 +38,13 @@ import {
   getRetrospectiveParticipantsBySocket,
   isRetrospectiveColumn,
   linkRetrospectiveActionItem,
+  moveRetrospectiveColumn,
   pauseRetrospectiveTimer,
   resetRetrospectiveTimer,
   startRetrospectiveTimer,
   toggleRetrospectiveActionItemStatus,
   toggleRetrospectiveCardLike,
+  updateRetrospectiveColumn,
   updateRetrospectiveTimerDuration,
   upsertRetrospectiveParticipant,
 } from '../../db/retrospectives'
@@ -139,7 +147,7 @@ export function registerRetrospectiveHandlers(io: Server, socket: Socket) {
         socket.emit(EVENTS.ROOM_ERROR, { code: 'FORBIDDEN', message: 'Not in this retrospective' })
         return
       }
-      if (!isRetrospectiveColumn(column) || !body?.trim()) {
+      if (!(await isRetrospectiveColumn(retroId, column)) || !body?.trim()) {
         socket.emit(EVENTS.ROOM_ERROR, { code: 'INVALID_PAYLOAD', message: 'Column and card text are required' })
         return
       }
@@ -155,6 +163,95 @@ export function registerRetrospectiveHandlers(io: Server, socket: Socket) {
       await emitRetrospectiveState(io, retroId)
     } catch (err) {
       socket.emit(EVENTS.ROOM_ERROR, { code: 'ERROR', message: 'Failed to add card' })
+    }
+  })
+
+  socket.on(EVENTS.RETRO_COLUMN_ADD, async (payload: AddRetrospectiveColumnPayload) => {
+    try {
+      const { retroId, title } = payload
+      if (!(await getRetrospectiveModerator(socket, retroId))) {
+        socket.emit(EVENTS.ROOM_ERROR, { code: 'FORBIDDEN', message: 'Only the moderator can add columns' })
+        return
+      }
+
+      const created = await addRetrospectiveColumn(retroId, uuid(), title)
+      if (!created) {
+        socket.emit(EVENTS.ROOM_ERROR, { code: 'INVALID_PAYLOAD', message: 'Column title is required' })
+        return
+      }
+
+      await emitRetrospectiveState(io, retroId)
+    } catch (err) {
+      socket.emit(EVENTS.ROOM_ERROR, { code: 'ERROR', message: 'Failed to add column' })
+    }
+  })
+
+  socket.on(EVENTS.RETRO_COLUMN_UPDATE, async (payload: UpdateRetrospectiveColumnPayload) => {
+    try {
+      const { retroId, columnId, title } = payload
+      if (!(await getRetrospectiveModerator(socket, retroId))) {
+        socket.emit(EVENTS.ROOM_ERROR, { code: 'FORBIDDEN', message: 'Only the moderator can edit columns' })
+        return
+      }
+
+      const updated = await updateRetrospectiveColumn(retroId, columnId, title)
+      if (!updated) {
+        socket.emit(EVENTS.ROOM_ERROR, { code: 'INVALID_PAYLOAD', message: 'Column title is required' })
+        return
+      }
+
+      await emitRetrospectiveState(io, retroId)
+    } catch (err) {
+      socket.emit(EVENTS.ROOM_ERROR, { code: 'ERROR', message: 'Failed to update column' })
+    }
+  })
+
+  socket.on(EVENTS.RETRO_COLUMN_MOVE, async (payload: MoveRetrospectiveColumnPayload) => {
+    try {
+      const { retroId, columnId, targetColumnId, position } = payload
+      if (!(await getRetrospectiveModerator(socket, retroId))) {
+        socket.emit(EVENTS.ROOM_ERROR, { code: 'FORBIDDEN', message: 'Only the moderator can reorder columns' })
+        return
+      }
+      if (!columnId || !targetColumnId || columnId === targetColumnId || (position !== 'before' && position !== 'after')) {
+        socket.emit(EVENTS.ROOM_ERROR, { code: 'INVALID_PAYLOAD', message: 'A source and target column are required' })
+        return
+      }
+
+      const moved = await moveRetrospectiveColumn(retroId, columnId, targetColumnId, position)
+      if (!moved) {
+        socket.emit(EVENTS.ROOM_ERROR, { code: 'INVALID_STATE', message: 'Columns could not be reordered' })
+        return
+      }
+
+      await emitRetrospectiveState(io, retroId)
+    } catch (err) {
+      socket.emit(EVENTS.ROOM_ERROR, { code: 'ERROR', message: 'Failed to reorder columns' })
+    }
+  })
+
+  socket.on(EVENTS.RETRO_COLUMN_DELETE, async (payload: DeleteRetrospectiveColumnPayload) => {
+    try {
+      const { retroId, columnId } = payload
+      if (!(await getRetrospectiveModerator(socket, retroId))) {
+        socket.emit(EVENTS.ROOM_ERROR, { code: 'FORBIDDEN', message: 'Only the moderator can delete columns' })
+        return
+      }
+
+      const result = await deleteRetrospectiveColumn(retroId, columnId)
+      if (!result.ok) {
+        const message = result.reason === 'not-empty'
+          ? 'Move or delete the cards in this column before removing it'
+          : result.reason === 'last-column'
+            ? 'A retrospective must keep at least one column'
+            : 'Column not found'
+        socket.emit(EVENTS.ROOM_ERROR, { code: 'INVALID_STATE', message })
+        return
+      }
+
+      await emitRetrospectiveState(io, retroId)
+    } catch (err) {
+      socket.emit(EVENTS.ROOM_ERROR, { code: 'ERROR', message: 'Failed to delete column' })
     }
   })
 
