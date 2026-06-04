@@ -258,6 +258,31 @@ function getArrowBetweenRects(sourceRect: BoardRect, targetRect: BoardRect): Omi
   }
 }
 
+function measureConnectionArrows(
+  board: HTMLElement | null,
+  actionItemArrowLinks: Array<{ actionItemId: string; normalCardId: string }>,
+  actionItemElements: Map<string, HTMLElement>,
+  normalCardElements: Map<string, HTMLElement>,
+) {
+  if (!board) return []
+
+  return actionItemArrowLinks.flatMap(link => {
+    const actionItemElement = actionItemElements.get(link.actionItemId)
+    const normalCardElement = normalCardElements.get(link.normalCardId)
+    if (!actionItemElement || !normalCardElement) return []
+
+    const measuredArrow = getArrowBetweenRects(
+      getRelativeRect(actionItemElement, board),
+      getRelativeRect(normalCardElement, board),
+    )
+
+    return [{
+      id: `${link.actionItemId}:${link.normalCardId}`,
+      ...measuredArrow,
+    }]
+  })
+}
+
 function RetrospectiveArrowOverlay({
   arrows,
   draftArrow,
@@ -271,10 +296,10 @@ function RetrospectiveArrowOverlay({
     <svg aria-hidden="true" className="pointer-events-none absolute inset-0 z-30 h-full w-full overflow-visible">
       <defs>
         <marker id="retro-action-arrowhead" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="4" markerHeight="4" orient="auto">
-          <path d="M 0 0 L 10 5 L 0 10 z" className="fill-red-500" />
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#ef4444" />
         </marker>
         <marker id="retro-action-arrowhead-draft" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="4" markerHeight="4" orient="auto">
-          <path d="M 0 0 L 10 5 L 0 10 z" className="fill-red-400" />
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#f87171" />
         </marker>
       </defs>
       {arrows.map(arrow => (
@@ -284,7 +309,8 @@ function RetrospectiveArrowOverlay({
           y1={arrow.start.y}
           x2={arrow.end.x}
           y2={arrow.end.y}
-          className="stroke-red-500/80"
+          stroke="#ef4444"
+          strokeOpacity="0.8"
           strokeWidth="2.5"
           strokeLinecap="round"
           markerEnd="url(#retro-action-arrowhead)"
@@ -296,7 +322,8 @@ function RetrospectiveArrowOverlay({
           y1={draftArrow.start.y}
           x2={draftArrow.end.x}
           y2={draftArrow.end.y}
-          className="stroke-red-400/80"
+          stroke="#f87171"
+          strokeOpacity="0.8"
           strokeWidth="2.5"
           strokeLinecap="round"
           strokeDasharray="7 6"
@@ -373,9 +400,16 @@ function DownloadRetroEvidenceButton({
 
     try {
       await new Promise<void>(resolve => {
-        window.requestAnimationFrame(() => {
-          window.requestAnimationFrame(() => resolve())
-        })
+        const step = (remainingFrames: number) => {
+          if (remainingFrames <= 0) {
+            resolve()
+            return
+          }
+
+          window.requestAnimationFrame(() => step(remainingFrames - 1))
+        }
+
+        step(3)
       })
 
       const dataUrl = await toPng(target, {
@@ -1165,11 +1199,17 @@ function RetroCard({
   )
 }
 
-function EvidenceActionItemCard({ card }: { card: RetrospectiveCardPublic }) {
+function EvidenceActionItemCard({
+  card,
+  actionItemRef,
+}: {
+  card: RetrospectiveCardPublic
+  actionItemRef: (element: HTMLElement | null) => void
+}) {
   const isDone = card.actionStatus === 'done'
 
   return (
-    <article className="space-y-1 rounded border border-red-300 bg-red-50 p-2.5">
+    <article ref={actionItemRef} data-retro-action-item-id={card.cardId} className="space-y-1 rounded border border-red-300 bg-red-50 p-2.5">
       <div className="flex items-center justify-between gap-2">
         <span className="inline-flex rounded-full bg-red-600 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white">
           Action item
@@ -1197,13 +1237,17 @@ function EvidenceRetroCard({
   card,
   colorClassName,
   actionItems,
+  normalCardRef,
+  getActionItemRef,
 }: {
   card: RetrospectiveCardPublic
   colorClassName: string
   actionItems: RetrospectiveCardPublic[]
+  normalCardRef: (element: HTMLElement | null) => void
+  getActionItemRef: (cardId: string) => (element: HTMLElement | null) => void
 }) {
   return (
-    <article className={`space-y-2 rounded border p-3 ${colorClassName}`}>
+    <article ref={normalCardRef} data-retro-normal-card-id={card.cardId} className={`space-y-2 rounded border p-3 ${colorClassName}`}>
       <p className="whitespace-pre-wrap break-words text-sm leading-6 text-slate-900">{card.body}</p>
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-700">
         {card.authorName ? <span>Author: {card.authorName}</span> : <span />}
@@ -1214,7 +1258,11 @@ function EvidenceRetroCard({
       {actionItems.length > 0 && (
         <div className="space-y-2 border-t border-slate-400/30 pt-2">
           {actionItems.map(actionItem => (
-            <EvidenceActionItemCard key={actionItem.cardId} card={actionItem} />
+            <EvidenceActionItemCard
+              key={actionItem.cardId}
+              card={actionItem}
+              actionItemRef={getActionItemRef(actionItem.cardId)}
+            />
           ))}
         </div>
       )}
@@ -1227,11 +1275,19 @@ function RetrospectiveEvidenceExport({
   title,
   exportedAt,
   actionItemsByOriginCardId,
+  arrows,
+  boardRef,
+  getNormalCardRef,
+  getActionItemRef,
 }: {
   retrospective: RetrospectiveState
   title: string
   exportedAt: Date
   actionItemsByOriginCardId: Map<string, RetrospectiveCardPublic[]>
+  arrows: BoardArrow[]
+  boardRef: RefObject<HTMLDivElement>
+  getNormalCardRef: (cardId: string) => (element: HTMLElement | null) => void
+  getActionItemRef: (cardId: string) => (element: HTMLElement | null) => void
 }) {
   const displayedRemainingMs = getDisplayedRemainingMs(retrospective.timer, exportedAt.getTime())
   const timerStatus = displayedRemainingMs <= 0
@@ -1241,7 +1297,7 @@ function RetrospectiveEvidenceExport({
       : 'Paused'
 
   return (
-    <div className="w-[1600px] bg-slate-50 p-8 text-slate-900">
+    <div className="relative w-[1600px] bg-slate-50 p-8 text-slate-900">
       <header className="mb-6 flex items-start justify-between gap-8 border-b border-slate-300 pb-5">
         <div className="min-w-0">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Retroboard evidence</p>
@@ -1267,42 +1323,47 @@ function RetrospectiveEvidenceExport({
         </div>
       </section>
 
-      <main
-        className="grid gap-4"
-        style={{ gridTemplateColumns: `repeat(${Math.max(retrospective.columns.length, 1)}, minmax(0, 1fr))` }}
-      >
-        {retrospective.columns.map(column => {
-          const visual = getColumnVisual(column.styleKey)
-          const cards = retrospective.cards.filter(card => card.kind === 'normal' && card.column === column.columnId)
+      <div ref={boardRef} className="relative">
+        <RetrospectiveArrowOverlay arrows={arrows} draftArrow={null} />
+        <main
+          className="grid gap-4"
+          style={{ gridTemplateColumns: `repeat(${Math.max(retrospective.columns.length, 1)}, minmax(0, 1fr))` }}
+        >
+          {retrospective.columns.map(column => {
+            const visual = getColumnVisual(column.styleKey)
+            const cards = retrospective.cards.filter(card => card.kind === 'normal' && card.column === column.columnId)
 
-          return (
-            <section key={column.columnId} className={`flex min-h-[520px] flex-col gap-3 rounded border p-4 ${visual.className}`}>
-              <div className="min-h-24">
-                <h2 className="flex min-h-10 items-start gap-2 text-xl font-semibold text-slate-900">
-                  <span aria-hidden="true">{visual.emoji}</span>
-                  {column.title}
-                </h2>
-              </div>
-              <div className="space-y-3">
-                {cards.length > 0 ? (
-                  cards.map(card => (
-                    <EvidenceRetroCard
-                      key={card.cardId}
-                      card={card}
-                      colorClassName={cardShade(card.cardId, visual.cardShades)}
-                      actionItems={actionItemsByOriginCardId.get(card.cardId) ?? []}
-                    />
-                  ))
-                ) : (
-                  <div className="rounded border border-dashed border-slate-400/70 bg-white/45 px-3 py-6 text-center text-sm text-slate-600">
-                    No cards
-                  </div>
-                )}
-              </div>
-            </section>
-          )
-        })}
-      </main>
+            return (
+              <section key={column.columnId} className={`flex min-h-[520px] flex-col gap-3 rounded border p-4 ${visual.className}`}>
+                <div className="min-h-24">
+                  <h2 className="flex min-h-10 items-start gap-2 text-xl font-semibold text-slate-900">
+                    <span aria-hidden="true">{visual.emoji}</span>
+                    {column.title}
+                  </h2>
+                </div>
+                <div className="space-y-3">
+                  {cards.length > 0 ? (
+                    cards.map(card => (
+                      <EvidenceRetroCard
+                        key={card.cardId}
+                        card={card}
+                        colorClassName={cardShade(card.cardId, visual.cardShades)}
+                        actionItems={actionItemsByOriginCardId.get(card.cardId) ?? []}
+                        normalCardRef={getNormalCardRef(card.cardId)}
+                        getActionItemRef={getActionItemRef}
+                      />
+                    ))
+                  ) : (
+                    <div className="rounded border border-dashed border-slate-400/70 bg-white/45 px-3 py-6 text-center text-sm text-slate-600">
+                      No cards
+                    </div>
+                  )}
+                </div>
+              </section>
+            )
+          })}
+        </main>
+      </div>
     </div>
   )
 }
@@ -1335,10 +1396,14 @@ export default function RetrospectiveBoardPage({ params }: { params: { retroId: 
   const [draggedColumnId, setDraggedColumnId] = useState<string | null>(null)
   const [columnDropPreview, setColumnDropPreview] = useState<{ targetColumnId: string; position: 'before' | 'after' } | null>(null)
   const [exportedAt, setExportedAt] = useState(() => new Date())
+  const [exportConnectionArrows, setExportConnectionArrows] = useState<BoardArrow[]>([])
   const boardRef = useRef<HTMLDivElement>(null)
   const exportRef = useRef<HTMLDivElement>(null)
+  const exportBoardRef = useRef<HTMLDivElement>(null)
   const normalCardElementsRef = useRef(new Map<string, HTMLElement>())
   const actionItemElementsRef = useRef(new Map<string, HTMLElement>())
+  const exportNormalCardElementsRef = useRef(new Map<string, HTMLElement>())
+  const exportActionItemElementsRef = useRef(new Map<string, HTMLElement>())
   const allCards = useMemo(() => state.retrospective?.cards ?? [], [state.retrospective?.cards])
   const actionItems = useMemo(() => allCards.filter(card => card.kind === 'action_item'), [allCards])
   const normalCardsById = useMemo(() => {
@@ -1400,6 +1465,20 @@ export default function RetrospectiveBoardPage({ params }: { params: { retroId: 
       actionItemElementsRef.current.delete(cardId)
     }
   }
+  const getExportNormalCardRef = (cardId: string) => (element: HTMLElement | null) => {
+    if (element) {
+      exportNormalCardElementsRef.current.set(cardId, element)
+    } else {
+      exportNormalCardElementsRef.current.delete(cardId)
+    }
+  }
+  const getExportActionItemRef = (cardId: string) => (element: HTMLElement | null) => {
+    if (element) {
+      exportActionItemElementsRef.current.set(cardId, element)
+    } else {
+      exportActionItemElementsRef.current.delete(cardId)
+    }
+  }
   const getBoardPoint = (clientX: number, clientY: number): BoardPoint | null => {
     const board = boardRef.current
     if (!board) return null
@@ -1449,29 +1528,14 @@ export default function RetrospectiveBoardPage({ params }: { params: { retroId: 
 
   useEffect(() => {
     const measureArrows = () => {
-      const board = boardRef.current
-      if (!board) {
-        setConnectionArrows([])
-        return
-      }
-
-      const nextArrows = actionItemArrowLinks.flatMap(link => {
-        const actionItemElement = actionItemElementsRef.current.get(link.actionItemId)
-        const normalCardElement = normalCardElementsRef.current.get(link.normalCardId)
-        if (!actionItemElement || !normalCardElement) return []
-
-        const measuredArrow = getArrowBetweenRects(
-          getRelativeRect(actionItemElement, board),
-          getRelativeRect(normalCardElement, board),
-        )
-
-        return [{
-          id: `${link.actionItemId}:${link.normalCardId}`,
-          ...measuredArrow,
-        }]
-      })
-
-      setConnectionArrows(nextArrows)
+      setConnectionArrows(
+        measureConnectionArrows(
+          boardRef.current,
+          actionItemArrowLinks,
+          actionItemElementsRef.current,
+          normalCardElementsRef.current,
+        ),
+      )
     }
 
     measureArrows()
@@ -1495,6 +1559,42 @@ export default function RetrospectiveBoardPage({ params }: { params: { retroId: 
       resizeObserver?.disconnect()
       window.removeEventListener('resize', measureArrows)
       window.removeEventListener('scroll', measureArrows, true)
+    }
+  }, [actionItemArrowLinks])
+
+  useEffect(() => {
+    const measureExportArrows = () => {
+      setExportConnectionArrows(
+        measureConnectionArrows(
+          exportBoardRef.current,
+          actionItemArrowLinks,
+          exportActionItemElementsRef.current,
+          exportNormalCardElementsRef.current,
+        ),
+      )
+    }
+
+    measureExportArrows()
+
+    const resizeObserver = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measureExportArrows) : null
+    if (resizeObserver) {
+      const board = exportBoardRef.current
+      if (board) resizeObserver.observe(board)
+      for (const element of exportNormalCardElementsRef.current.values()) {
+        resizeObserver.observe(element)
+      }
+      for (const element of exportActionItemElementsRef.current.values()) {
+        resizeObserver.observe(element)
+      }
+    }
+
+    window.addEventListener('resize', measureExportArrows)
+    window.addEventListener('scroll', measureExportArrows, true)
+
+    return () => {
+      resizeObserver?.disconnect()
+      window.removeEventListener('resize', measureExportArrows)
+      window.removeEventListener('scroll', measureExportArrows, true)
     }
   }, [actionItemArrowLinks])
 
@@ -1615,6 +1715,10 @@ export default function RetrospectiveBoardPage({ params }: { params: { retroId: 
             title={title}
             exportedAt={exportedAt}
             actionItemsByOriginCardId={actionItemsByOriginCardId}
+            arrows={exportConnectionArrows}
+            boardRef={exportBoardRef}
+            getNormalCardRef={getExportNormalCardRef}
+            getActionItemRef={getExportActionItemRef}
           />
         </div>
       </div>
