@@ -1,6 +1,6 @@
 'use client'
 
-import { type DragEvent, type PointerEvent, type RefObject, useEffect, useMemo, useRef, useState } from 'react'
+import { type DragEvent, type PointerEvent, type ReactNode, type RefObject, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toPng } from 'html-to-image'
@@ -659,12 +659,14 @@ function ColumnTitleEditor({
   column,
   isModerator,
   canDelete,
+  controls,
   onUpdate,
   onDelete,
 }: {
   column: RetrospectiveColumnDefinition
   isModerator: boolean
   canDelete: boolean
+  controls?: ReactNode
   onUpdate: (columnId: string, title: string) => void
   onDelete: (columnId: string) => void
 }) {
@@ -720,27 +722,30 @@ function ColumnTitleEditor({
   }
 
   return (
-    <div data-column-drag-ignore="true" className="flex items-start justify-between gap-3">
-      <div className="flex min-w-0 flex-1 items-start gap-2">
-        <h2 className="min-h-10 flex-1 break-words text-xl font-semibold text-slate-900">{column.title}</h2>
-      </div>
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => setEditing(true)}
-          className="text-xs font-medium text-slate-700 transition-opacity hover:opacity-80"
-        >
-          Edit
-        </button>
-        {canDelete && (
+    <div className="space-y-2">
+      <div className="flex items-center justify-end gap-2">
+        {controls}
+        <div data-column-drag-ignore="true" className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => onDelete(column.columnId)}
-            className="text-xs font-medium text-red-600 transition-colors hover:text-red-700"
+            onClick={() => setEditing(true)}
+            className="text-xs font-medium text-slate-700 transition-opacity hover:opacity-80"
           >
-            Delete
+            Edit
           </button>
-        )}
+          {canDelete && (
+            <button
+              type="button"
+              onClick={() => onDelete(column.columnId)}
+              className="text-xs font-medium text-red-600 transition-colors hover:text-red-700"
+            >
+              Delete
+            </button>
+          )}
+        </div>
+      </div>
+      <div data-column-drag-ignore="true" className="flex min-w-0 items-start gap-2">
+        <h2 className="min-h-10 flex-1 break-words text-xl font-semibold text-slate-900">{column.title}</h2>
       </div>
     </div>
   )
@@ -1136,11 +1141,11 @@ function RetroCard({
               type="button"
               onClick={() => onToggleLike(card.cardId)}
               aria-label={card.likedByMe ? `Remove appreciation from card. ${card.likeCount} total.` : `Appreciate card. ${card.likeCount} total.`}
-                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors ${card.likedByMe ? 'border-brand bg-brand text-white' : 'border-slate-400/80 bg-white/70 text-slate-800 hover:bg-white'}`}
-                title={card.likedByMe ? 'Unlike' : 'Like'}
-              >
-                <AppreciationIcon filled={card.likedByMe} />
-              <span className={`rounded-full px-1.5 py-0.5 text-[11px] leading-none ${card.likedByMe ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'}`}>
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs shadow-sm transition-colors ${card.likedByMe ? 'border-brand bg-brand text-white shadow-brand/20 hover:bg-brand/90' : 'border-slate-300 bg-slate-50 text-slate-700 hover:border-slate-400 hover:bg-slate-100 hover:text-slate-900 focus-visible:border-slate-400 focus-visible:bg-slate-100 focus-visible:text-slate-900 dark:border-slate-600 dark:bg-slate-900/80 dark:text-slate-100 dark:hover:border-slate-500 dark:hover:bg-slate-900 dark:hover:text-white'}`}
+              title={card.likedByMe ? 'Unlike' : 'Like'}
+            >
+              <AppreciationIcon filled={card.likedByMe} />
+              <span className={`rounded-full px-1.5 py-0.5 text-[11px] leading-none ${card.likedByMe ? 'bg-white/20 text-white' : 'bg-white/85 text-slate-700 ring-1 ring-slate-300/80 dark:bg-white/10 dark:text-slate-100 dark:ring-white/10'}`}>
                 {card.likeCount}
               </span>
             </button>
@@ -1796,35 +1801,16 @@ export default function RetrospectiveBoardPage({ params }: { params: { retroId: 
               return (
                 <section
                   key={column.columnId}
-                  draggable={state.isModerator}
                   onDragStartCapture={event => {
-                    if (!state.isModerator || shouldIgnoreColumnDrag(event.target)) {
+                    if (shouldIgnoreColumnDrag(event.target)) {
                       event.preventDefault()
                       event.stopPropagation()
                     }
                   }}
-                  onDragStart={event => {
-                    if (!state.isModerator || shouldIgnoreColumnDrag(event.target)) {
-                      event.preventDefault()
-                      return
-                    }
-
-                    event.dataTransfer.effectAllowed = 'move'
-                    event.dataTransfer.setData('text/plain', column.columnId)
-                    setConnectingActionItemId(null)
-                    setActiveLinkTargetCardId(null)
-                    setDraftArrow(null)
-                    setDraggedColumnId(column.columnId)
-                    setColumnDropPreview(null)
-                  }}
-                  onDragEnd={() => {
-                    setDraggedColumnId(null)
-                    setColumnDropPreview(null)
-                  }}
                   onDragOver={event => handleColumnDragOver(event, column.columnId)}
                   onDrop={event => handleColumnDrop(event, column.columnId)}
                   className={`border rounded p-4 flex flex-col gap-2 min-h-[520px] transition-shadow ${visual.className} ${dropIndicatorClass} ${
-                    isDraggingColumn ? 'cursor-grabbing opacity-70 scale-[0.99]' : state.isModerator ? 'cursor-grab' : ''
+                    isDraggingColumn ? 'opacity-70 scale-[0.99]' : ''
                   }`}
                 >
                   <div className="flex min-h-14 flex-col">
@@ -1835,6 +1821,44 @@ export default function RetrospectiveBoardPage({ params }: { params: { retroId: 
                           column={column}
                           isModerator={state.isModerator}
                           canDelete={columns.length > 1}
+                          controls={state.isModerator ? (
+                            <div
+                              role="button"
+                              aria-label="Reorder column"
+                              title="Reorder column"
+                              draggable
+                              onDragStart={event => {
+                                event.dataTransfer.effectAllowed = 'move'
+                                event.dataTransfer.setData('text/plain', column.columnId)
+                                setConnectingActionItemId(null)
+                                setActiveLinkTargetCardId(null)
+                                setDraftArrow(null)
+                                setDraggedColumnId(column.columnId)
+                                setColumnDropPreview(null)
+                              }}
+                              onDragEnd={() => {
+                                setDraggedColumnId(null)
+                                setColumnDropPreview(null)
+                              }}
+                              className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-slate-400/50 bg-white/65 text-slate-600 shadow-sm transition-colors hover:border-slate-600/70 hover:bg-white/90 hover:text-slate-900 ${
+                                isDraggingColumn ? 'cursor-grabbing' : 'cursor-grab'
+                              }`}
+                            >
+                              <svg
+                                aria-hidden="true"
+                                viewBox="0 0 20 20"
+                                className="pointer-events-none h-4 w-4"
+                                fill="currentColor"
+                              >
+                                <circle cx="7" cy="5" r="1.4" />
+                                <circle cx="13" cy="5" r="1.4" />
+                                <circle cx="7" cy="10" r="1.4" />
+                                <circle cx="13" cy="10" r="1.4" />
+                                <circle cx="7" cy="15" r="1.4" />
+                                <circle cx="13" cy="15" r="1.4" />
+                              </svg>
+                            </div>
+                          ) : null}
                           onUpdate={updateColumn}
                           onDelete={deleteColumn}
                         />
